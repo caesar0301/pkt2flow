@@ -10,7 +10,10 @@ for further analysis.
 
 The packets are saved in the time order without any processing.
 
-=Usage=
+Usage
+--------
+
+run `scons` to compile.
 
 usage: ./pkt2flow [-u] -o outdir pcapfile
 
@@ -18,8 +21,6 @@ usage: ./pkt2flow [-u] -o outdir pcapfile
   
   options:
   
-    -h        usage instructions
-    
+    -h        usage instructions 
     -u        dump UDP flows
-    
     -o        Output directory
