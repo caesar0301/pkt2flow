@@ -60,7 +60,7 @@ void usage (char *progname)
 {
     fprintf (stderr,"usage: %s [-u] -o outdir pcapfile\n", progname);
     fprintf (stderr,"  The seperated flows will be stored in the  \"outdir\",\
-		and flow names stored in \"flow_names\".\n");
+and flow names stored in \"flow_names\".\n");
     fprintf (stderr,"  options:\n");
     fprintf (stderr,"    -h        usage instructions\n");
 	fprintf (stderr,"    -u        dump UDP flows\n");
