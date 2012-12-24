@@ -8,7 +8,9 @@ Separate the packets into flows considering only 4 tuples:
 source address, source port, dest address, dest port
 for further analysis.
 
-The packets are saved in the time order without any processing.
+The packets are saved in the time order without any processing like TCP resembling.
+
+The flow timeout is considered as 64 seconds suggested by CAIDA.
 
 Usage
 --------
