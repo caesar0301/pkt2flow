@@ -1,4 +1,3 @@
-
 /* tcpsplit
  * Mark Allman (mallman@icir.org)
  * 
@@ -30,6 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#define _BSD_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,14 +58,14 @@ char *flownames = "flow_names";
 
 void usage (char *progname)
 {
-    fprintf (stderr,"usage: %s [-u] -o outdir pcapfile\n", progname);
-    fprintf (stderr,"  The seperated flows will be stored in the  \"outdir\",\
+	fprintf (stderr,"usage: %s [-u] -o outdir pcapfile\n", progname);
+	fprintf (stderr,"  The seperated flows will be stored in the  \"outdir\",\
 and flow names stored in \"flow_names\".\n");
-    fprintf (stderr,"  options:\n");
-    fprintf (stderr,"    -h        usage instructions\n");
-	fprintf (stderr,"    -u        dump UDP flows\n");
-    fprintf (stderr,"    -o        Output directory\n");
-    exit (1);
+	fprintf (stderr,"  options:\n");
+	fprintf (stderr,"	-h		usage instructions\n");
+	fprintf (stderr,"	-u		dump UDP flows\n");
+	fprintf (stderr,"	-o		Output directory\n");
+	exit (1);
 }
 
 
@@ -109,9 +109,9 @@ void record_flow_name(char *fname){
 
 void open_trace_file ()
 {
-    char errbuf [PCAP_ERRBUF_SIZE];
+	char errbuf [PCAP_ERRBUF_SIZE];
 	
-    if ((inputp = pcap_open_offline (readfile, errbuf)) == NULL){
+	if ((inputp = pcap_open_offline (readfile, errbuf)) == NULL){
 		fprintf (stderr,"error opening tracefile %s: %s\n", readfile, errbuf);
 		exit (1);
 	}
@@ -120,30 +120,30 @@ void open_trace_file ()
 
 void process_trace ()
 {
-    struct pcap_pkthdr hdr;
+	struct pcap_pkthdr hdr;
 	struct ether_header *ethh = NULL;
-    struct ip *iph = NULL;
-    struct tcphdr *tcph = NULL;
+	struct ip *iph = NULL;
+	struct tcphdr *tcph = NULL;
 	struct udphdr *udph = NULL;
-    u_char *pkt = NULL;
-    struct pkt_dump_file *pdf = NULL;
+	u_char *pkt = NULL;
+	struct pkt_dump_file *pdf = NULL;
 	struct pcap_dumper_t *dumper = NULL;
-    unsigned short offset;
+	unsigned short offset;
 	unsigned long src_ip, dst_ip;
-    unsigned short src_port, dst_port;
+	unsigned short src_port, dst_port;
 	char *fname = NULL;
 	char *filepath = NULL;
 	unsigned short fplen = strlen(outputdir)+FILE_NAME_LENGTH+2;
 	
 	filepath = malloc(fplen);
-    while ((pkt = (u_char *)pcap_next (inputp, &hdr)) != NULL){
+	while ((pkt = (u_char *)pcap_next (inputp, &hdr)) != NULL){
 		ethh = (struct ether_header *)pkt;
 		if (hdr.caplen < (EH_SIZE + sizeof (struct ip)) || ntohs(ethh->ether_type) != EH_IP){
-		    // Omit the non-IP packets
-		    continue;
+			// Omit the non-IP packets
+			continue;
 		}
 		if ((iph = (struct ip *)(pkt + EH_SIZE)) == NULL){
-		    continue;
+			continue;
 		}
 		src_ip = ntohl(iph->ip_src.s_addr);
 		dst_ip = ntohl(iph->ip_dst.s_addr);
@@ -162,15 +162,15 @@ void process_trace ()
 			if (hdr.caplen < offset + sizeof(struct tcphdr))
 				continue;
 			tcph = (struct tcphdr *)(pkt + offset);
-		    src_port = ntohs(tcph->th_sport);
-		    dst_port = ntohs(tcph->th_dport);
+			src_port = ntohs(tcph->th_sport);
+			dst_port = ntohs(tcph->th_dport);
 		}
 		if (iph->ip_p == IPPROTO_UDP){
 			if (hdr.caplen < offset + sizeof(struct udphdr))
 				continue;
 			udph = (struct udph *)(pkt + offset);
-		    src_port = ntohs(udph->uh_sport);
-		    dst_port = ntohs(udph->uh_dport);
+			src_port = ntohs(udph->uh_sport);
+			dst_port = ntohs(udph->uh_dport);
 		}
 		// Search for the packet dump file obj
 		pdf = get_pkt_dump_file (iph->ip_src.s_addr,iph->ip_dst.s_addr,src_port, dst_port);
@@ -207,14 +207,14 @@ void process_trace ()
 		pcap_dump ((u_char *)dumper, &hdr, (unsigned char *)pkt);
 		pcap_dump_close(dumper);
 		pdf->pkts++;
-    }
+	}
 	free(filepath);
 }
 
 
 void close_trace_files ()
 {
-    pcap_close (inputp);
+	pcap_close (inputp);
 }
 
 
@@ -222,10 +222,10 @@ int main (argc,argv)
 int argc;
 char *argv [];
 {
-    parseargs (argc,argv);
-    open_trace_file ();
-    init_hash_table ();
-    process_trace ();
-    close_trace_files ();
-    exit (0);
+	parseargs (argc,argv);
+	open_trace_file ();
+	init_hash_table ();
+	process_trace ();
+	close_trace_files ();
+	exit (0);
 }
