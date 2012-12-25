@@ -35,7 +35,7 @@
 #include <pcap.h>
 
 
-#define FLOW_TIMEOUT		   64	// seconds, suggested by CAIDA
+#define FLOW_TIMEOUT		   1800	// seconds
 #define HASH_MULTIPLIER        37
 #define HASH_TBL_SIZE          48611
 #define EH_SIZE                14

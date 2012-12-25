@@ -10,7 +10,7 @@ for further analysis.
 
 The packets are saved in the time order without any processing like TCP resembling.
 
-The flow timeout is considered as 64 seconds suggested by CAIDA.
+The flow timeout is considered as 30 minutes which can be changed in pkt2flow.h.
 
 Usage
 --------
