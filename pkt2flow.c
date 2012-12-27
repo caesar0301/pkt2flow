@@ -199,7 +199,6 @@ void process_trace ()
 			record_flow_name(fname);
 			memcpy(pdf->file_name, fname, strlen(fname));
 			pdf->start_time = hdr.ts.tv_sec;
-			pdf->pkts++;
 			free(fname);
 		}else{
 			if(hdr.ts.tv_sec - pdf->start_time >= FLOW_TIMEOUT){
@@ -210,7 +209,6 @@ void process_trace ()
 				record_flow_name(fname);
 				memcpy(pdf->file_name, fname, strlen(fname));
 				pdf->start_time = hdr.ts.tv_sec;
-				pdf->pkts++;
 				free(fname);
 			}
 		}
@@ -234,6 +232,7 @@ void process_trace ()
 		// Dump the packet now
 		pcap_dump ((u_char *)dumper, &hdr, (unsigned char *)pkt);
 		pcap_dump_close(dumper);
+		pdf->pkts++;
 	}
 	
 	free(filepath);
