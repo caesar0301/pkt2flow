@@ -1,8 +1,7 @@
-
-/* tcpsplit
- * Mark Allman (mallman@icir.org)
+/* pkt2flow
+ * Xiaming Chen (chen_xm@sjtu.edu.cn)
  * 
- * Copyright (c) 2004 International Computer Science Institute
+ * Copyright (c) 2012
  * 
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -57,8 +56,20 @@ unsigned int hashf (char *array, unsigned int sz, unsigned int hash)
     return (h);
 }
 
+// Clear the status of dump file object
+void reset_pkt_dump_file(struct pkt_dump_file *f){
+	f->pkts = 0;
+	f->start_time = 0;
+	memset(f->file_name, '\0', FILE_NAME_LENGTH);
+}
 
-struct pkt_dump_file *get_pkt_dump_file (src_ip, dst_ip, src_tcp, dst_tcp)
+// Search the hash table and return the dump file for a flow
+// If the flow item exists in the hash table, the dump file object will be returned
+// If not, a new flow item will be generated and added to the hash table;
+// afterwards, the flow item will be initialized with the empty dump file:
+// zero packets, zero timestamp, and file name bytes all set to be '\0'
+struct pkt_dump_file *
+get_pkt_dump_file (src_ip, dst_ip, src_tcp, dst_tcp)
 unsigned int src_ip, dst_ip;
 unsigned short src_tcp, dst_tcp;
 {
@@ -109,8 +120,6 @@ unsigned short src_tcp, dst_tcp;
     memcpy (&newp->port2,&dst_tcp,2);
     newp->next = pairs [hash];
     pairs [hash] = newp;
-	newp->pdf.pkts = 0;
-	newp->pdf.start_time = 0;
-	memset(newp->pdf.file_name, '\0', FILE_NAME_LENGTH);
+	reset_pkt_dump_file ((struct pkt_dump_file *)&(newp->pdf));
     return (struct pkt_dump_file *)(&newp->pdf);
 }

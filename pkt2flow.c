@@ -1,7 +1,7 @@
-/* tcpsplit
- * Mark Allman (mallman@icir.org)
+/* pkt2flow
+ * Xiaming Chen (chen_xm@sjtu.edu.cn)
  * 
- * Copyright (c) 2004 International Computer Science Institute
+ * Copyright (c) 2012
  * 
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -51,20 +51,21 @@
 
 char *readfile = NULL;
 char *outputdir = NULL;
+char tcpsyn = 0;
 char dumpudp = 0;
 pcap_t *inputp = NULL;
 struct ip_pair *pairs [HASH_TBL_SIZE];
-char *flownames = "flow_names";
+char *flownames = "flow_names.txt";
 
 void usage (char *progname)
 {
-	fprintf (stderr,"usage: %s [-u] -o outdir pcapfile\n", progname);
-	fprintf (stderr,"  The seperated flows will be stored in the  \"outdir\",\
-and flow names stored in \"flow_names\".\n");
-	fprintf (stderr,"  options:\n");
+	fprintf (stderr,"Usage: %s [-u] -o outdir pcapfile\n", progname);
+	fprintf (stderr,"The seperated flows will be stored in the  \"outdir\", and another file will be generated to store the flow file names.\n");
+	fprintf (stderr,"options:\n");
 	fprintf (stderr,"	-h		usage instructions\n");
+	fprintf (stderr,"   -v      dump the validated TCP flows only with the first SYN detected\n");
 	fprintf (stderr,"	-u		dump UDP flows\n");
-	fprintf (stderr,"	-o		Output directory\n");
+	fprintf (stderr,"	-o		output directory\n");
 	exit (1);
 }
 
@@ -83,6 +84,9 @@ void parseargs (int argc,char *argv[])
 				break;
 			case 'u':
 				dumpudp = 1;
+				break;
+			case 'v':
+				tcpsyn = 1;
 				break;
 			default:
 				usage(argv [0]);
@@ -137,6 +141,7 @@ void process_trace ()
 	
 	filepath = malloc(fplen);
 	while ((pkt = (u_char *)pcap_next (inputp, &hdr)) != NULL){
+		// Get IP layer information
 		ethh = (struct ether_header *)pkt;
 		if (hdr.caplen < (EH_SIZE + sizeof (struct ip)) || ntohs(ethh->ether_type) != EH_IP){
 			// Omit the non-IP packets
@@ -150,14 +155,17 @@ void process_trace ()
 		
 		offset = EH_SIZE + (iph->ip_hl * 4);
 		if (iph->ip_p != IPPROTO_TCP ){
+			// Check the flag to dump UDP or not
 			if(dumpudp == 0)
-			// Omit the non-TCP packets
-			continue;
+				// Omit the non-TCP packets
+				continue;
 			else
 				if(iph->ip_p != IPPROTO_UDP)
-				// Omit the non-TCP or non-UDP packets
-				continue;
+					// Omit the non-TCP or non-UDP packets
+					continue;
 		}
+		
+		// Get the src and dst ports of TCP or UDP
 		if (iph->ip_p == IPPROTO_TCP){
 			if (hdr.caplen < offset + sizeof(struct tcphdr))
 				continue;
@@ -172,42 +180,51 @@ void process_trace ()
 			src_port = ntohs(udph->uh_sport);
 			dst_port = ntohs(udph->uh_dport);
 		}
+		
 		// Search for the packet dump file obj
 		pdf = get_pkt_dump_file (iph->ip_src.s_addr,iph->ip_dst.s_addr,src_port, dst_port);
-		if(pdf->file_name[0] == '\n'){
+		if(pdf->pkts == 0){
+			// There is no this flow and a new flow item is created with empty dump file object
 			fname = new_file_name(src_ip, dst_ip, src_port, dst_port, hdr.ts.tv_sec);
 			record_flow_name(fname);
-			memset(pdf->file_name, '\0', FILE_NAME_LENGTH);
 			memcpy(pdf->file_name, fname, strlen(fname));
 			pdf->start_time = hdr.ts.tv_sec;
-			pdf->pkts = 0;
 			free(fname);
 		}else{
 			if(hdr.ts.tv_sec - pdf->start_time >= FLOW_TIMEOUT){
+				// Rest the pair to start a new flow with the same 4-tuple, but with
+				// the different name and timestamp
+				reset_pkt_dump_file(pdf);
 				fname = new_file_name(src_ip, dst_ip, src_port, dst_port, hdr.ts.tv_sec);
 				record_flow_name(fname);
-				memset(pdf->file_name, '\0', FILE_NAME_LENGTH);
 				memcpy(pdf->file_name, fname, strlen(fname));
 				pdf->start_time = hdr.ts.tv_sec;
-				pdf->pkts = 0;
 				free(fname);
 			}
 		}
-		// Dump the packet to file
+		
+		// Prepare the flow file path
 		memset(filepath, '\0', fplen);
 		strcpy(filepath, outputdir);
 		strcat(filepath, "/");
 		strcat(filepath, pdf->file_name);
+		
+		// Dump the packet to file and close the file
 		FILE *f = fopen(filepath, "ab");
 		if(pdf->pkts == 0){
+			// Call the pcap_dump_fopen to write the pcap file header first
+			// to the new file
 			dumper = pcap_dump_fopen(inputp, f);
 		}else{
+			// Write the packet only
 			dumper = (pcap_dumper_t *)f;
 		}
+		// Dump the packet now
 		pcap_dump ((u_char *)dumper, &hdr, (unsigned char *)pkt);
 		pcap_dump_close(dumper);
 		pdf->pkts++;
 	}
+	
 	free(filepath);
 }
 

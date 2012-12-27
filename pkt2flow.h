@@ -1,9 +1,8 @@
 
-/* 
- *tcpsplit
- * Mark Allman (mallman@icir.org)
+/* pkt2flow
+ * Xiaming Chen (chen_xm@sjtu.edu.cn)
  * 
- * Copyright (c) 2004 International Computer Science Institute
+ * Copyright (c) 2012
  * 
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -31,6 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 
 #include <pcap.h>
 
@@ -65,7 +65,9 @@ char *new_file_name(unsigned int src_ip, unsigned int dst_ip, unsigned short src
 /* ipa_db.c */
 
 void init_hash_table ();
-struct pkt_dump_file *get_pkt_dump_file (unsigned int src_ip, unsigned int dst_ip, unsigned short src_tcp, unsigned short dst_tcp);
+void reset_pkt_dump_file (struct pkt_dump_file *f);
+struct pkt_dump_file *
+	get_pkt_dump_file (unsigned int src_ip, unsigned int dst_ip, unsigned short src_tcp, unsigned short dst_tcp);
 
 /* pkt2flow.c */
 
