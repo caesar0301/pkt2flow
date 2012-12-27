@@ -4,9 +4,9 @@ pkt2flow
 by chenxm, SJTU
 2012-12
 
-Separate the packets into flows considering only 4 tuples:
-source address, source port, dest address, dest port
-for further analysis.
+To seperate the packets into flows (UDP or TCP) by 4-tuple of (src_ip, dst_ip, src_port, dst_port).
+Each flow will be saved into a pcap file named with 4_tuple and the timestamp of
+the first packet of the flow for further analysis, e.g., using tcpflow, tcptrace, captcp.py etc.
 
 The packets are saved in the time order without any processing like TCP resembling.
 
@@ -19,10 +19,9 @@ run `scons` to compile.
 
 usage: ./pkt2flow [-u] -o outdir pcapfile
 
-  The seperated flows will be stored in the  "outdir", and flow names stored in "flow_names".
-  
   options:
   
-    -h        usage instructions 
+    -h        usage instructions
+    -v        dump the validated TCP flows only with the first SYN detected
     -u        dump UDP flows
     -o        Output directory
