@@ -56,20 +56,14 @@ unsigned int hashf (char *array, unsigned int sz, unsigned int hash)
     return (h);
 }
 
-// Clear the status of dump file object
-void reset_pkt_dump_file(struct pkt_dump_file *f){
+void reset_pdf(struct pkt_dump_file *f){
 	f->pkts = 0;
 	f->start_time = 0;
 	memset(f->file_name, '\0', FILE_NAME_LENGTH);
 }
 
-// Search the hash table and return the dump file for a flow
-// If the flow item exists in the hash table, the dump file object will be returned
-// If not, a new flow item will be generated and added to the hash table;
-// afterwards, the flow item will be initialized with the empty dump file:
-// zero packets, zero timestamp, and file name bytes all set to be '\0'
-struct pkt_dump_file *
-get_pkt_dump_file (src_ip, dst_ip, src_tcp, dst_tcp)
+struct ip_pair *
+find_ip_pair (src_ip, dst_ip, src_tcp, dst_tcp)
 unsigned int src_ip, dst_ip;
 unsigned short src_tcp, dst_tcp;
 {
@@ -105,21 +99,55 @@ unsigned short src_tcp, dst_tcp;
 				     !memcmp (&src_ip,&p->ip2,4) &&
 				     !memcmp (&dst_tcp,&p->port1,2) &&
 				     !memcmp (&src_tcp,&p->port2,2)))
-				    return (struct pkt_dump_file *)(&p->pdf);
+				    return p;
 			}
 		}
     }
+
+    return NULL;
+}
+
+struct ip_pair *
+register_ip_pair(src_ip, dst_ip, src_tcp, dst_tcp)
+unsigned int src_ip, dst_ip;
+unsigned short src_tcp, dst_tcp;
+{
+    struct ip_pair *p;
+    struct ip_pair *newp;
+    unsigned int hash = 0;
+    unsigned short i;
 	
+	for (i = 0; i < 2; i++){
+		if (i == 0){
+		    hash = hashf (&src_ip,4,0);
+		    hash = hashf (&dst_ip,4,hash);
+		    if (src_tcp)
+			hash = hashf (&src_tcp,2,hash);
+		    if (dst_tcp)
+			hash = hashf (&dst_tcp,2,hash);
+		}else{
+		    hash = hashf (&dst_ip,4,0);
+		    hash = hashf (&src_ip,4,hash);
+		    if (dst_tcp)
+			hash = hashf (&dst_tcp,2,hash);
+		    if (src_tcp)
+			hash = hashf (&src_tcp,2,hash);
+		}
+		hash = hash % HASH_TBL_SIZE;
+    }
+
     if ((newp = (struct ip_pair *)malloc (sizeof (struct ip_pair))) == NULL){
 		fprintf (stderr,"not enough memory to allocate another IP pair\n");
 		exit (1);
     }
+
     memcpy (&newp->ip1,&src_ip,4);
     memcpy (&newp->ip2,&dst_ip,4);
     memcpy (&newp->port1,&src_tcp,2);
     memcpy (&newp->port2,&dst_tcp,2);
     newp->next = pairs [hash];
     pairs [hash] = newp;
-	reset_pkt_dump_file ((struct pkt_dump_file *)&(newp->pdf));
-    return (struct pkt_dump_file *)(&newp->pdf);
+	reset_pdf ((struct pkt_dump_file *)&(newp->pdf));
+
+    return newp;
 }

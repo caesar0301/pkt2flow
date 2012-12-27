@@ -60,12 +60,12 @@ char *flownames = "flow_names.txt";
 void usage (char *progname)
 {
 	fprintf (stderr,"Usage: %s [-u] -o outdir pcapfile\n", progname);
-	fprintf (stderr,"The seperated flows will be stored in the  \"outdir\", and another file will be generated to store the flow file names.\n");
-	fprintf (stderr,"options:\n");
-	fprintf (stderr,"	-h		usage instructions\n");
-	fprintf (stderr,"   -v      dump the validated TCP flows only with the first SYN detected\n");
-	fprintf (stderr,"	-u		dump UDP flows\n");
-	fprintf (stderr,"	-o		output directory\n");
+	fprintf (stderr,"\nTo seperate the packets into flows (UDP or TCP) by 4-tuple of (src_ip, dst_ip, src_port, dst_port). Each flow will be saved into a pcap file named with 4_tuple and the timestamp of the first packet of the flow. The flow timeout is treated as 30 minutes.\n");
+	fprintf (stderr,"\nOptions:\n");
+	fprintf (stderr,"	-h	usage instructions\n");
+	fprintf (stderr,"	-v	dump the validated TCP flows only with the first SYN detected\n");
+	fprintf (stderr,"	-u	dump UDP flows\n");
+	fprintf (stderr,"	-o	output directory\n");
 	exit (1);
 }
 
@@ -73,7 +73,7 @@ void usage (char *progname)
 void parseargs (int argc,char *argv[])
 {
 	int opt;
-	const char *optstr = "uo:h";
+	const char *optstr = "uvo:h";
 	while((opt = getopt(argc, argv, optstr)) != -1){
 		switch(opt){
 			case 'h':
@@ -131,6 +131,7 @@ void process_trace ()
 	struct udphdr *udph = NULL;
 	u_char *pkt = NULL;
 	struct pkt_dump_file *pdf = NULL;
+	struct ip_pair *pair =  NULL;
 	struct pcap_dumper_t *dumper = NULL;
 	unsigned short offset;
 	unsigned long src_ip, dst_ip;
@@ -181,24 +182,35 @@ void process_trace ()
 			dst_port = ntohs(udph->uh_dport);
 		}
 		
-		// Search for the packet dump file obj
-		pdf = get_pkt_dump_file (iph->ip_src.s_addr,iph->ip_dst.s_addr,src_port, dst_port);
+		// Search for the ip_pair of specific four-tuple
+		pair = find_ip_pair (iph->ip_src.s_addr,iph->ip_dst.s_addr,src_port, dst_port);
+		if (pair == NULL){
+			if ((iph->ip_p == IPPROTO_TCP) && (tcpsyn == 1) && ((tcph->th_flags & TH_SYN) != TH_SYN)){
+				// No SYN detected and don't create a new flow
+				continue;
+			}
+			pair = register_ip_pair (iph->ip_src.s_addr,iph->ip_dst.s_addr,src_port, dst_port);
+		}
+		
+		pdf = &pair->pdf;
 		if(pdf->pkts == 0){
-			// There is no this flow and a new flow item is created with empty dump file object
+			// A new flow item reated with empty dump file object
 			fname = new_file_name(src_ip, dst_ip, src_port, dst_port, hdr.ts.tv_sec);
 			record_flow_name(fname);
 			memcpy(pdf->file_name, fname, strlen(fname));
 			pdf->start_time = hdr.ts.tv_sec;
+			pdf->pkts++;
 			free(fname);
 		}else{
 			if(hdr.ts.tv_sec - pdf->start_time >= FLOW_TIMEOUT){
 				// Rest the pair to start a new flow with the same 4-tuple, but with
 				// the different name and timestamp
-				reset_pkt_dump_file(pdf);
+				reset_pdf(pdf);
 				fname = new_file_name(src_ip, dst_ip, src_port, dst_port, hdr.ts.tv_sec);
 				record_flow_name(fname);
 				memcpy(pdf->file_name, fname, strlen(fname));
 				pdf->start_time = hdr.ts.tv_sec;
+				pdf->pkts++;
 				free(fname);
 			}
 		}
@@ -222,7 +234,6 @@ void process_trace ()
 		// Dump the packet now
 		pcap_dump ((u_char *)dumper, &hdr, (unsigned char *)pkt);
 		pcap_dump_close(dumper);
-		pdf->pkts++;
 	}
 	
 	free(filepath);
