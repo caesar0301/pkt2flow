@@ -3,6 +3,7 @@ pkt2flow
 
 by chenxm, Shanghai Jiao Tong Univ.
 chenxm35@gmail.com
+
 2012-12
 
 A simple utility to classify packets into flows. It's so simple that only one task
@@ -29,9 +30,9 @@ run `scons` to compile.
 
 Usage: ./pkt2flow [-huv] [-o outdir] pcapfile
 
-Options:
-	-h	print this help and exit
-	-u	also dump (U)DP flows
-	-v	also dump the in(v)alid TCP flows without the SYN option
-	-o	(o)utput directory
+	Options:
+		-h	print this help and exit
+		-u	also dump (U)DP flows
+		-v	also dump the in(v)alid TCP flows without the SYN option
+		-o	(o)utput directory
 
