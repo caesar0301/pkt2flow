@@ -34,19 +34,26 @@
 
 #include <pcap.h>
 
-
-#define FLOW_TIMEOUT		   1800	// seconds
-#define HASH_MULTIPLIER        37
-#define HASH_TBL_SIZE          48611
-#define EH_SIZE                14
-#define EH_IP				   0x0800
-#define FILE_NAME_LENGTH       128
-
+#define __VERSION__				"0.12"
+#define __AUTHOR__				"X. Chen (chenxm35@gmail.com)"
+#define __GLOBAL_NAME__			"pkt2flow"
+#define EH_SIZE					14
+#define EH_IP					0x0800
+#define FLOW_TIMEOUT			1800	// seconds
+#define HASH_MULTIPLIER			37
+#define HASH_TBL_SIZE			48611
+#define FILE_NAME_LENGTH		128
+#define PATH_NAME_LENGTH		1024
 
 struct pkt_dump_file
 {
 	char file_name[FILE_NAME_LENGTH];
     unsigned long pkts;
+#define STS_UNSET			0x0000
+#define STS_TCP_SYN			0x0001
+#define STS_TCP_NOSYN		0x0010
+#define STS_UDP				0x1000
+	unsigned int status;
 	unsigned long start_time;
 };
 

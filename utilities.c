@@ -34,6 +34,7 @@
 	 
 #define IP_LENGTH sizeof("aaa.bbb.ccc.ddd")
 #define FILE_NAME_LEGNTH 64
+char flow_record[] = "flow_names.txt";
 
 char *ip_ntos(unsigned long n)
 {
@@ -46,7 +47,14 @@ char *ip_ntos(unsigned long n)
 		(n & 0x000000ff) >> 0);
 	return buf;
 }
- 
+
+void record_flow_name(char *fname){
+	FILE *f = fopen(flow_record, "a+");
+	fputs(fname, f);
+	fputc('\n', f);
+	fclose(f);
+}
+
 char *new_file_name(src_ip, dst_ip, src_tcp, dst_tcp, timestamp)
 unsigned int src_ip, dst_ip;
 unsigned short src_tcp, dst_tcp;
@@ -58,6 +66,7 @@ unsigned long timestamp;
 	memset(fname, '\0', FILE_NAME_LEGNTH);
 	sprintf(fname, "%s_%d_%s_%d_%d.pcap", src_ip_str, src_tcp, dst_ip_str, dst_tcp, timestamp);
 	//fprintf(stderr, "%s\n", buf);
+	record_flow_name(fname);
 	free(src_ip_str);
 	free(dst_ip_str);
 	return fname;

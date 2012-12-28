@@ -59,6 +59,7 @@ unsigned int hashf (char *array, unsigned int sz, unsigned int hash)
 void reset_pdf(struct pkt_dump_file *f){
 	f->pkts = 0;
 	f->start_time = 0;
+	f->status = STS_UNSET;
 	memset(f->file_name, '\0', FILE_NAME_LENGTH);
 }
 
