@@ -66,7 +66,7 @@ unsigned long timestamp;
 	memset(fname, '\0', FILE_NAME_LEGNTH);
 	sprintf(fname, "%s_%d_%s_%d_%d.pcap", src_ip_str, src_tcp, dst_ip_str, dst_tcp, timestamp);
 	//fprintf(stderr, "%s\n", buf);
-	record_flow_name(fname);
+	//record_flow_name(fname);
 	free(src_ip_str);
 	free(dst_ip_str);
 	return fname;

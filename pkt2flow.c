@@ -55,7 +55,7 @@ char tcpsyn = 1;
 char dumpudp = 0;
 char *readfile = NULL;
 //char *interface = NULL;
-char *outputdir = "outdir";
+char *outputdir = "pkt2flow.out";
 char outputpath[PATH_NAME_LENGTH];
 pcap_t *inputp = NULL;
 struct ip_pair *pairs [HASH_TBL_SIZE];
