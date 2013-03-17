@@ -178,28 +178,23 @@ void process_trace ()
 	while ((pkt = (u_char *)pcap_next (inputp, &hdr)) != NULL){
 		// Get IP layer information
 		ethh = (struct ether_header *)pkt;
-		if (hdr.caplen < (EH_SIZE + sizeof (struct ip)) || ntohs(ethh->ether_type) != EH_IP){
-			// Omit the non-IP packets
-			continue;
+		if (hdr.caplen >= (EH_SIZE + sizeof (struct ip))){
+			if (ntohs(ethh->ether_type) != EH_IP) continue;
 		}
-		if ((iph = (struct ip *)(pkt + EH_SIZE)) == NULL){
-			continue;
-		}
+		else continue;
+
+		if ((iph = (struct ip *)(pkt + EH_SIZE)) == NULL) continue;
+
 		src_ip = ntohl(iph->ip_src.s_addr);
 		dst_ip = ntohl(iph->ip_dst.s_addr);
 		
 		offset = EH_SIZE + (iph->ip_hl * 4);
 		if (iph->ip_p != IPPROTO_TCP ){
 			// Check the flag to dump UDP or not
-			if(dumpudp == 0)
-				// Omit the non-TCP packets
-				continue;
-			else
-				if(iph->ip_p != IPPROTO_UDP)
-					// Omit the non-TCP or non-UDP packets
-					continue;
+			if(dumpudp == 0) continue;
+			else if(iph->ip_p != IPPROTO_UDP) continue;	
 		}
-		
+
 		// Get the src and dst ports of TCP or UDP
 		if (iph->ip_p == IPPROTO_TCP){
 			if (hdr.caplen < offset + sizeof(struct tcphdr))
