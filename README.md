@@ -23,10 +23,25 @@ saved in the order as read from the source. Any further processing like TCP rese
 not performed. The flow timeout is considered as 30 minutes which can be changed in pkt2flow.h.
 
 
+How to compile
+----------
+
+
+This program is structured and compiled with a tool called SCons (http://www.scons.org/).
+You can follow simple steps to make a compile:
+
+1. Make sure you have libpcap (on Mac and Linux) in your system.
+
+2. Install "Scons" that can be downloaded from its official website given above.
+
+3. `cd` into the root folder of pkt2flow, and run `scons`
+
+    >cd pkt2flow
+    >scons
+
+
 Usage
 --------
-
-run `scons` to compile.
 
 Usage: ./pkt2flow [-huv] [-o outdir] pcapfile
 
