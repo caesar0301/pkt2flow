@@ -329,5 +329,6 @@ int main(int argc, char *argv[])
 	init_hash_table();
 	process_trace();
 	close_trace_files();
+	free_hash_table();
 	exit(0);
 }
