@@ -51,14 +51,6 @@ static char *ip_ntos(unsigned int n)
 	return buf;
 }
 
-static void record_flow_name(char *fname)
-{
-	FILE *f = fopen(flow_record, "a+");
-	fputs(fname, f);
-	fputc('\n', f);
-	fclose(f);
-}
-
 char *new_file_name(unsigned int src_ip, unsigned int dst_ip,
                     unsigned short src_tcp, unsigned short dst_tcp,
                     unsigned long timestamp)
@@ -70,7 +62,6 @@ char *new_file_name(unsigned int src_ip, unsigned int dst_ip,
 	sprintf(fname, "%s_%d_%s_%u_%lu.pcap", src_ip_str, src_tcp, dst_ip_str,
 		dst_tcp, timestamp);
 	//fprintf(stderr, "%s\n", buf);
-	//record_flow_name(fname);
 	free(src_ip_str);
 	free(dst_ip_str);
 	return fname;
