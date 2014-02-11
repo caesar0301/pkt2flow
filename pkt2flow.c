@@ -30,25 +30,23 @@
  * SOFTWARE.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <arpa/inet.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <net/if.h>
+#include <getopt.h>
 #include <net/ethernet.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "pkt2flow.h"
 
 static uint32_t dump_allowed;
@@ -181,37 +179,118 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 	return outputpath;
 }
 
+static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
+			      size_t len, uint8_t proto)
+{
+	struct tcphdr *tcphdr;
+	struct udphdr *udphdr;
+
+	switch (proto) {
+	case IPPROTO_UDP:
+		if (len < sizeof(*udphdr))
+			return -1;
+
+		udphdr = (struct udphdr *)bytes;
+		af_6tuple->protocol = IPPROTO_UDP;
+		af_6tuple->port1 = ntohs(udphdr->source);
+		af_6tuple->port2 = ntohs(udphdr->dest);
+		return 0;
+	case IPPROTO_TCP:
+		if (len < sizeof(*tcphdr))
+			return -1;
+
+		tcphdr = (struct tcphdr *)bytes;
+		af_6tuple->protocol = IPPROTO_TCP;
+		af_6tuple->port1 = ntohs(tcphdr->source);
+		af_6tuple->port2 = ntohs(tcphdr->dest);
+
+		if (tcphdr->syn)
+			return 1;
+		else
+			return 0;
+	default:
+		af_6tuple->protocol = 0;
+		af_6tuple->port1 = 0;
+		af_6tuple->port2 = 0;
+		return 0;
+	}
+}
+
+static int pcap_handle_ipv4(struct af_6tuple *af_6tuple, const u_char *bytes,
+			    size_t len)
+{
+	struct ip *iphdr;
+
+	if (len < sizeof(*iphdr))
+		return -1;
+
+	iphdr = (struct ip *)bytes;
+	if (len > ntohs(iphdr->ip_len))
+		len = ntohs(iphdr->ip_len);
+
+	if (len < 4 * iphdr->ip_hl)
+		return -1;
+
+	len -= 4 * iphdr->ip_hl;
+	bytes += 4 * iphdr->ip_hl;
+
+	af_6tuple->af_family = AF_INET;
+	af_6tuple->ip1.v4 = iphdr->ip_src;
+	af_6tuple->ip2.v4 = iphdr->ip_dst;
+
+	return pcap_handle_layer4(af_6tuple, bytes, len, iphdr->ip_p);
+}
+
+static int pcap_handle_ip(struct af_6tuple *af_6tuple, const u_char *bytes,
+			  size_t len)
+{
+	if (len < 1)
+		return -1;
+
+	/* IP header */
+	if ((bytes[0] >> 4) == 4)
+		return pcap_handle_ipv4(af_6tuple, bytes, len);
+
+	return -1;
+}
+
+static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
+				const struct pcap_pkthdr *h,
+				const u_char *bytes)
+{
+	size_t len = h->caplen;
+	struct ether_header *ethhdr;
+
+	/* Ethernet header */
+	if (len < sizeof(*ethhdr))
+		return - 1;
+
+	ethhdr = (struct ether_header *)bytes;
+	len -= sizeof(*ethhdr);
+	bytes += sizeof(*ethhdr);
+
+	if (ntohs(ethhdr->ether_type) != ETHERTYPE_IP)
+		return -1;
+
+	return pcap_handle_ip(af_6tuple, bytes, len);
+}
+
 static void process_trace(void)
 {
 	struct pcap_pkthdr hdr;
-	struct ether_header *ethh = NULL;
-	struct ip *iph = NULL;
-	struct tcphdr *tcph = NULL;
-	struct udphdr *udph = NULL;
+	int syn_detected;
 	struct ip_pair *pair =  NULL;
 	pcap_dumper_t *dumper = NULL;
 	u_char *pkt = NULL;
 	char *fname = NULL;
-	unsigned short offset;
 	struct af_6tuple af_6tuple;
 
 	while ((pkt = (u_char *)pcap_next(inputp, &hdr)) != NULL) {
-		// Get IP layer information
-		ethh = (struct ether_header *)pkt;
-		if (hdr.caplen < (EH_SIZE + sizeof(struct ip)) ||
-		    ntohs(ethh->ether_type) != EH_IP) {
-			// Omit the non-IP packets
+		syn_detected = pcap_handle_ethernet(&af_6tuple, &hdr, pkt);
+		if (syn_detected < 0)
 			continue;
-		}
-		if ((iph = (struct ip *)(pkt + EH_SIZE)) == NULL) {
-			continue;
-		}
-		af_6tuple.af_family = AF_INET;
-		af_6tuple.ip1.v4 = iph->ip_src;
-		af_6tuple.ip2.v4 = iph->ip_dst;
 
-		offset = EH_SIZE + (iph->ip_hl * 4);
-		switch (iph->ip_p) {
+		switch (af_6tuple.protocol) {
 		case IPPROTO_TCP:
 			/* always accept tcp */
 			break;
@@ -227,35 +306,11 @@ static void process_trace(void)
 			break;
 		}
 
-		// Get the src and dst ports of TCP or UDP
-		switch (iph->ip_p) {
-		case IPPROTO_TCP:
-			if (hdr.caplen < offset + sizeof(struct tcphdr))
-				continue;
-			tcph = (struct tcphdr *)(pkt + offset);
-			af_6tuple.protocol = IPPROTO_TCP;
-			af_6tuple.port1 = ntohs(tcph->source);
-			af_6tuple.port2 = ntohs(tcph->dest);
-			break;
-		case IPPROTO_UDP:
-			if (hdr.caplen < offset + sizeof(struct udphdr))
-				continue;
-			udph = (struct udphdr *)(pkt + offset);
-			af_6tuple.protocol = IPPROTO_UDP;
-			af_6tuple.port1 = ntohs(udph->source);
-			af_6tuple.port2 = ntohs(udph->dest);
-			break;
-		default:
-			af_6tuple.protocol = 0;
-			af_6tuple.port1 = 0;
-			af_6tuple.port2 = 0;
-			break;
-		}
-
 		// Search for the ip_pair of specific four-tuple
 		pair = find_ip_pair(af_6tuple);
 		if (pair == NULL) {
-			if ((af_6tuple.protocol == IPPROTO_TCP) && !tcph->syn &&
+			if ((af_6tuple.protocol == IPPROTO_TCP) &&
+			    !syn_detected &&
 			    !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
 				// No SYN detected and don't create a new flow
 				continue;
@@ -263,7 +318,7 @@ static void process_trace(void)
 			pair = register_ip_pair(af_6tuple);
 			switch (af_6tuple.protocol) {
 			case IPPROTO_TCP:
-				if (tcph->syn)
+				if (syn_detected)
 					pair->pdf.status = STS_TCP_SYN;
 				else
 					pair->pdf.status = STS_TCP_NOSYN;
