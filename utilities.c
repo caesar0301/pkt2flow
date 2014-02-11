@@ -38,22 +38,22 @@
 #include <sys/socket.h>
 #include "pkt2flow.h"
 
-char *new_file_name(struct af_5tuple af_5tuple, unsigned long timestamp)
+char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp)
 {
 	char *fname;
 	char src_ip_str[INET_ADDRSTRLEN];
 	char dst_ip_str[INET_ADDRSTRLEN];
 	int ret;
 
-	switch (af_5tuple.af_family) {
+	switch (af_6tuple.af_family) {
 	case AF_INET:
-		inet_ntop(AF_INET, &af_5tuple.ip1.v4, src_ip_str, INET_ADDRSTRLEN);
-		inet_ntop(AF_INET, &af_5tuple.ip2.v4, dst_ip_str, INET_ADDRSTRLEN);
+		inet_ntop(AF_INET, &af_6tuple.ip1.v4, src_ip_str, INET_ADDRSTRLEN);
+		inet_ntop(AF_INET, &af_6tuple.ip2.v4, dst_ip_str, INET_ADDRSTRLEN);
 		break;
 	}
 
 	ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
-		       src_ip_str, af_5tuple.port1, dst_ip_str, af_5tuple.port2,
+		       src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
 		       timestamp);
 	if (ret < 0)
 		fname = NULL;
