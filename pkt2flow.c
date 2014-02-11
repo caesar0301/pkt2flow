@@ -108,7 +108,7 @@ void parseargs (int argc,char *argv[])
 	}
 }
 
-void open_trace_file ()
+void open_trace_file (void)
 {
 	char errbuf [PCAP_ERRBUF_SIZE];
 	
@@ -160,7 +160,7 @@ char *resemble_file_path(struct pkt_dump_file *pdf){
 	return outputpath;
 }
 
-void process_trace ()
+void process_trace (void)
 {
 	struct pcap_pkthdr hdr;
 	struct ether_header *ethh = NULL;
@@ -271,15 +271,13 @@ void process_trace ()
 }
 
 
-void close_trace_files ()
+void close_trace_files (void)
 {
 	pcap_close (inputp);
 }
 
 
-int main (argc,argv)
-int argc;
-char *argv [];
+int main (int argc, char *argv[])
 {
 	parseargs (argc,argv);
 	open_trace_file ();

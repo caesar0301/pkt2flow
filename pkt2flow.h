@@ -77,7 +77,7 @@ char *new_file_name(unsigned int src_ip, unsigned int dst_ip, unsigned short src
 /*
 * Initialize the flow hash table to store registered flow items
 */
-void init_hash_table ();
+void init_hash_table (void);
 
 /*
 * Search for the flow in the flow hash table with specific 4-tuple;

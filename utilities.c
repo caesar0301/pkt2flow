@@ -57,10 +57,9 @@ void record_flow_name(char *fname){
 	fclose(f);
 }
 
-char *new_file_name(src_ip, dst_ip, src_tcp, dst_tcp, timestamp)
-unsigned int src_ip, dst_ip;
-unsigned short src_tcp, dst_tcp;
-unsigned long timestamp;
+char *new_file_name(unsigned int src_ip, unsigned int dst_ip,
+		    unsigned short src_tcp, unsigned short dst_tcp,
+		    unsigned long timestamp)
 {
 	char *src_ip_str = ip_ntos(src_ip);
 	char *dst_ip_str = ip_ntos(dst_ip);

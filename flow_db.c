@@ -38,7 +38,7 @@
 
 struct ip_pair *pairs [HASH_TBL_SIZE];
 
-void init_hash_table ()
+void init_hash_table (void)
 {
     bzero (pairs, sizeof (struct ip_pair *) * HASH_TBL_SIZE);
 }
@@ -62,10 +62,8 @@ void reset_pdf(struct pkt_dump_file *f){
 	memset(f->file_name, '\0', FILE_NAME_LENGTH);
 }
 
-struct ip_pair *
-find_ip_pair (src_ip, dst_ip, src_tcp, dst_tcp)
-unsigned int src_ip, dst_ip;
-unsigned short src_tcp, dst_tcp;
+struct ip_pair *find_ip_pair(unsigned int src_ip, unsigned int dst_ip,
+			     unsigned short src_tcp, unsigned short dst_tcp)
 {
     struct ip_pair *p;
     struct ip_pair *newp;
@@ -107,10 +105,8 @@ unsigned short src_tcp, dst_tcp;
     return NULL;
 }
 
-struct ip_pair *
-register_ip_pair(src_ip, dst_ip, src_tcp, dst_tcp)
-unsigned int src_ip, dst_ip;
-unsigned short src_tcp, dst_tcp;
+struct ip_pair *register_ip_pair(unsigned int src_ip, unsigned int dst_ip,
+				 unsigned short src_tcp, unsigned short dst_tcp)
 {
     struct ip_pair *p;
     struct ip_pair *newp;
