@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <arpa/inet.h>
@@ -51,8 +52,7 @@
 #include <pcap/pcap.h>
 #include "pkt2flow.h"
 
-static char tcpsyn = 1;
-static char dumpudp = 0;
+static uint32_t dump_allowed;
 static char *readfile = NULL;
 //char *interface = NULL;
 static char *outputdir = "pkt2flow.out";
@@ -88,10 +88,10 @@ static void parseargs(int argc, char *argv[])
 			outputdir = optarg;
 			break;
 		case 'u':
-			dumpudp = 1;
+			dump_allowed |= DUMP_UDP_ALLOWED;
 			break;
 		case 'v':
-			tcpsyn = 0;
+			dump_allowed |= DUMP_TCP_NOSYN_ALLOWED;
 			break;
 		default:
 			usage(argv [0]);
@@ -201,14 +201,20 @@ static void process_trace(void)
 		dst_ip = ntohl(iph->ip_dst.s_addr);
 
 		offset = EH_SIZE + (iph->ip_hl * 4);
-		if (iph->ip_p != IPPROTO_TCP) {
-			// Check the flag to dump UDP or not
-			if (dumpudp == 0)
-				// Omit the non-TCP packets
+		switch (iph->ip_p) {
+		case IPPROTO_TCP:
+			/* always accept tcp */
+			break;
+		case IPPROTO_UDP:
+			if (!isset_bits(dump_allowed, DUMP_UDP_ALLOWED))
+				// Omit the UDP packets
 				continue;
-			else if (iph->ip_p != IPPROTO_UDP)
-				// Omit the non-TCP or non-UDP packets
+			break;
+		default:
+			if (!isset_bits(dump_allowed, DUMP_OTHER_ALLOWED))
+				// Omit the other packets
 				continue;
+			break;
 		}
 
 		// Get the src and dst ports of TCP or UDP
@@ -237,21 +243,28 @@ static void process_trace(void)
 		pair = find_ip_pair(iph->ip_src.s_addr, iph->ip_dst.s_addr,
 				    src_port, dst_port);
 		if (pair == NULL) {
-			if ((iph->ip_p == IPPROTO_TCP) && (tcpsyn == 1) &&
-			    ((tcph->th_flags & TH_SYN) != TH_SYN)) {
+			if ((iph->ip_p == IPPROTO_TCP) &&
+			    ((tcph->th_flags & TH_SYN) != TH_SYN) &&
+			    !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
 				// No SYN detected and don't create a new flow
 				continue;
 			}
 			pair = register_ip_pair(iph->ip_src.s_addr,
 						iph->ip_dst.s_addr, src_port,
 						dst_port);
-			if (iph->ip_p == IPPROTO_UDP)
-				pair->pdf.status = STS_UDP;
-			else {
+			switch (iph->ip_p) {
+			case IPPROTO_TCP:
 				if ((tcph->th_flags & TH_SYN) == TH_SYN)
 					pair->pdf.status = STS_TCP_SYN;
 				else
 					pair->pdf.status = STS_TCP_NOSYN;
+				break;
+			case IPPROTO_UDP:
+				pair->pdf.status = STS_UDP;
+				break;
+			default:
+				pair->pdf.status = STS_UNSET;
+				break;
 			}
 		}
 

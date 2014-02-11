@@ -42,6 +42,16 @@
 #define FILE_NAME_LENGTH                128
 #define PATH_NAME_LENGTH                1024
 
+#define BIT(bitnr) (1ULL << (bitnr))
+#define isset_bits(x, bitmask) ({ typeof(bitmask) _bitmask = (bitmask); \
+				  (_bitmask & (x)) == _bitmask; })
+
+enum dump_allow_flags {
+	DUMP_OTHER_ALLOWED = BIT(0),
+	DUMP_TCP_NOSYN_ALLOWED = BIT(1),
+	DUMP_UDP_ALLOWED = BIT(2),
+};
+
 enum pkt_dump_file_status {
 	STS_UNSET,
 	STS_TCP_SYN,
