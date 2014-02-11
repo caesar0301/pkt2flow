@@ -193,8 +193,7 @@ static void process_trace(void)
 	u_char *pkt = NULL;
 	char *fname = NULL;
 	unsigned short offset;
-	struct in_addr src_ip, dst_ip;
-	uint16_t src_port, dst_port;
+	struct af_5tuple af_5tuple;
 
 	while ((pkt = (u_char *)pcap_next(inputp, &hdr)) != NULL) {
 		// Get IP layer information
@@ -207,8 +206,9 @@ static void process_trace(void)
 		if ((iph = (struct ip *)(pkt + EH_SIZE)) == NULL) {
 			continue;
 		}
-		src_ip = iph->ip_src;
-		dst_ip = iph->ip_dst;
+		af_5tuple.af_family = AF_INET;
+		af_5tuple.ip1.v4 = iph->ip_src;
+		af_5tuple.ip2.v4 = iph->ip_dst;
 
 		offset = EH_SIZE + (iph->ip_hl * 4);
 		switch (iph->ip_p) {
@@ -233,32 +233,31 @@ static void process_trace(void)
 			if (hdr.caplen < offset + sizeof(struct tcphdr))
 				continue;
 			tcph = (struct tcphdr *)(pkt + offset);
-			src_port = ntohs(tcph->source);
-			dst_port = ntohs(tcph->dest);
+			af_5tuple.port1 = ntohs(tcph->source);
+			af_5tuple.port2 = ntohs(tcph->dest);
 			break;
 		case IPPROTO_UDP:
 			if (hdr.caplen < offset + sizeof(struct udphdr))
 				continue;
 			udph = (struct udphdr *)(pkt + offset);
-			src_port = ntohs(udph->source);
-			dst_port = ntohs(udph->dest);
+			af_5tuple.port1 = ntohs(udph->source);
+			af_5tuple.port2 = ntohs(udph->dest);
 			break;
 		default:
-			src_port = 0;
-			dst_port = 0;
+			af_5tuple.port1 = 0;
+			af_5tuple.port2 = 0;
 			break;
 		}
 
-		// Search for the ip_pair of specific four-tuple
-		pair = find_ip_pair(src_ip, dst_ip, src_port, dst_port);
+		// Search for the ip_pair of specific five-tuple
+		pair = find_ip_pair(af_5tuple);
 		if (pair == NULL) {
 			if ((iph->ip_p == IPPROTO_TCP) && !tcph->syn &&
 			    !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
 				// No SYN detected and don't create a new flow
 				continue;
 			}
-			pair = register_ip_pair(src_ip, dst_ip,
-						src_port, dst_port);
+			pair = register_ip_pair(af_5tuple);
 			switch (iph->ip_p) {
 			case IPPROTO_TCP:
 				if (tcph->syn)
@@ -278,17 +277,15 @@ static void process_trace(void)
 		// Fill the ip_pair with information of the current flow
 		if (pair->pdf.pkts == 0) {
 			// A new flow item reated with empty dump file object
-			fname = new_file_name(src_ip, dst_ip, src_port,
-					      dst_port, hdr.ts.tv_sec);
+			fname = new_file_name(af_5tuple, hdr.ts.tv_sec);
 			pair->pdf.file_name = fname;
 			pair->pdf.start_time = hdr.ts.tv_sec;
 		} else {
 			if (hdr.ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT) {
-				// Rest the pair to start a new flow with the same 4-tuple, but with
+				// Rest the pair to start a new flow with the same 5-tuple, but with
 				// the different name and timestamp
 				reset_pdf(&(pair->pdf));
-				fname = new_file_name(src_ip, dst_ip, src_port,
-						      dst_port, hdr.ts.tv_sec);
+				fname = new_file_name(af_5tuple, hdr.ts.tv_sec);
 				pair->pdf.file_name = fname;
 				pair->pdf.start_time = hdr.ts.tv_sec;
 			}

@@ -68,9 +68,18 @@ struct pkt_dump_file {
 	unsigned long start_time;
 };
 
-struct ip_pair {
-	struct in_addr ip1, ip2;
+union ip_address {
+	struct in_addr v4;
+};
+
+struct af_5tuple {
+	int af_family;
+	union ip_address ip1, ip2;
 	uint16_t port1, port2;
+};
+
+struct ip_pair {
+	struct af_5tuple af_5tuple;
 	struct pkt_dump_file pdf;
 	struct ip_pair *next;
 };
@@ -83,9 +92,7 @@ extern struct ip_pair *pairs[];
 /*
  * Generate a new file name for flow with 4-tuple and timestamp
  */
-char *new_file_name(struct in_addr src_ip, struct in_addr dst_ip,
-		    uint16_t src_tcp, uint16_t dst_tcp,
-		    unsigned long timestamp);
+char *new_file_name(struct af_5tuple af_5tuple, unsigned long timestamp);
 
 /* flow_db.c */
 
@@ -105,8 +112,7 @@ void free_hash_table(void);
  * returned.
  * Otherwise, NULL returned;
  */
-struct ip_pair *find_ip_pair(struct in_addr src_ip, struct in_addr dst_ip,
-			     uint16_t src_tcp, uint16_t dst_tcp);
+struct ip_pair *find_ip_pair(struct af_5tuple af_5tuple);
 
 /*
  * To register a new flow item in the flow hash table. This is uaually called
@@ -114,8 +120,7 @@ struct ip_pair *find_ip_pair(struct in_addr src_ip, struct in_addr dst_ip,
  * The pointer to the new registerd ip_pair will be returned; and the pdf will
  * be reset as empty.
  */
-struct ip_pair *register_ip_pair(struct in_addr src_ip, struct in_addr dst_ip,
-				 uint16_t src_tcp, uint16_t dst_tcp);
+struct ip_pair *register_ip_pair(struct af_5tuple af_5tuple);
 
 /*
  * Reset the packet dump file (pdf) for: 1) a new ip_pair created;

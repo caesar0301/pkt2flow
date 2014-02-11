@@ -30,28 +30,31 @@
  * SOFTWARE.
  */
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <inttypes.h>
 #include <arpa/inet.h>
+#include <inttypes.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/socket.h>
 #include "pkt2flow.h"
 
-char *new_file_name(struct in_addr src_ip, struct in_addr dst_ip,
-                    uint16_t src_tcp, uint16_t dst_tcp,
-                    unsigned long timestamp)
+char *new_file_name(struct af_5tuple af_5tuple, unsigned long timestamp)
 {
 	char *fname;
 	char src_ip_str[INET_ADDRSTRLEN];
 	char dst_ip_str[INET_ADDRSTRLEN];
 	int ret;
 
-	inet_ntop(AF_INET, &src_ip, src_ip_str, INET_ADDRSTRLEN);
-	inet_ntop(AF_INET, &dst_ip, dst_ip_str, INET_ADDRSTRLEN);
+	switch (af_5tuple.af_family) {
+	case AF_INET:
+		inet_ntop(AF_INET, &af_5tuple.ip1.v4, src_ip_str, INET_ADDRSTRLEN);
+		inet_ntop(AF_INET, &af_5tuple.ip2.v4, dst_ip_str, INET_ADDRSTRLEN);
+		break;
+	}
 
 	ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
-		       src_ip_str, src_tcp, dst_ip_str, dst_tcp, timestamp);
+		       src_ip_str, af_5tuple.port1, dst_ip_str, af_5tuple.port2,
+		       timestamp);
 	if (ret < 0)
 		fname = NULL;
 
