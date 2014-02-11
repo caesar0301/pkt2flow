@@ -37,8 +37,6 @@
 #define __SOURCE_VERSION__              "1.2"
 #define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
 #define __GLOBAL_NAME__                 "pkt2flow"
-#define EH_SIZE                         14
-#define EH_IP                           0x0800
 #define FLOW_TIMEOUT                    1800    // seconds
 #define HASH_MULTIPLIER                 37
 #define HASH_TBL_SIZE                   48611
