@@ -1,5 +1,5 @@
 #!/usr/bin/evn python
-env = Environment(CCFLAGS='-w -g')
+env = Environment(CCFLAGS='-Wall -g')
 lib_path = ['/usr/local/lib', '/usr/lib']
 libs = Glob('./*.a') + ['pcap']
 cpp_path=['.']
