@@ -217,7 +217,7 @@ static void process_trace(void)
 		if (iph->ip_p == IPPROTO_UDP) {
 			if (hdr.caplen < offset + sizeof(struct udphdr))
 				continue;
-			udph = (struct udph *)(pkt + offset);
+			udph = (struct udphdr *)(pkt + offset);
 			src_port = ntohs(udph->uh_sport);
 			dst_port = ntohs(udph->uh_dport);
 		}
