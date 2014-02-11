@@ -63,7 +63,7 @@ struct ip_pair *pairs[HASH_TBL_SIZE];
 static void usage(char *progname)
 {
 	fprintf(stderr, "Name: %s\n", __GLOBAL_NAME__);
-	fprintf(stderr, "Version: %s\n", __VERSION__);
+	fprintf(stderr, "Version: %s\n", __SOURCE_VERSION__);
 	fprintf(stderr, "Author: %s\n", __AUTHOR__);
 	fprintf(stderr, "Program to seperate the packets into flows (UDP or TCP).\n\n");
 	fprintf(stderr, "Usage: %s [-huv] [-o outdir] pcapfile\n\n", progname);
