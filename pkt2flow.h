@@ -41,8 +41,6 @@
 #define FLOW_TIMEOUT                    1800    // seconds
 #define HASH_MULTIPLIER                 37
 #define HASH_TBL_SIZE                   48611
-#define FILE_NAME_LENGTH                128
-#define PATH_NAME_LENGTH                1024
 
 #define BIT(bitnr) (1ULL << (bitnr))
 #define isset_bits(x, bitmask) ({ typeof(bitmask) _bitmask = (bitmask); \
@@ -62,7 +60,7 @@ enum pkt_dump_file_status {
 };
 
 struct pkt_dump_file {
-	char file_name[FILE_NAME_LENGTH];
+	char *file_name;
 	unsigned long pkts;
 
 	enum pkt_dump_file_status status;
