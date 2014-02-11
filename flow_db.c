@@ -61,7 +61,8 @@ void reset_pdf(struct pkt_dump_file *f)
 	f->pkts = 0;
 	f->start_time = 0;
 	f->status = STS_UNSET;
-	memset(f->file_name, '\0', FILE_NAME_LENGTH);
+	free(f->file_name);
+	f->file_name = NULL;
 }
 
 struct ip_pair *find_ip_pair(uint32_t src_ip, uint32_t dst_ip,
@@ -142,6 +143,7 @@ struct ip_pair *register_ip_pair(uint32_t src_ip, uint32_t dst_ip,
 	memcpy(&newp->ip2, &dst_ip, 4);
 	memcpy(&newp->port1, &src_tcp, 2);
 	memcpy(&newp->port2, &dst_tcp, 2);
+	newp->pdf.file_name = NULL;
 	newp->next = pairs [hash];
 	pairs [hash] = newp;
 	reset_pdf((struct pkt_dump_file *) & (newp->pdf));

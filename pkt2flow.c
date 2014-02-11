@@ -55,7 +55,6 @@ static uint32_t dump_allowed;
 static char *readfile = NULL;
 //char *interface = NULL;
 static char *outputdir = "pkt2flow.out";
-static char outputpath[PATH_NAME_LENGTH];
 static pcap_t *inputp = NULL;
 struct ip_pair *pairs[HASH_TBL_SIZE];
 
@@ -127,39 +126,42 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 {
 	char *cwd = getcwd(NULL, 0);    // backup the current working directory
 	char *folder = NULL;
-	char *dupPath = NULL;
 	int check;
 	struct stat statBuff;
 	int ret;
+	const char *type_folder;
+	char *outputpath;
 
-	strcpy(outputpath, outputdir);
-	strcat(outputpath, "/");
 	switch (pdf->status) {
 	case STS_TCP_SYN:
-		strcat(outputpath, "tcp_syn/");
+		type_folder = "tcp_syn";
 		break;
 	case STS_TCP_NOSYN:
-		strcat(outputpath, "tcp_nosyn/");
+		type_folder = "tcp_nosyn";
 		break;
 	case STS_UDP:
-		strcat(outputpath, "udp/");
+		type_folder = "udp";
 		break;
 	case STS_UNSET:
-		strcat(outputpath, "others/");
+		type_folder = "others";
+		break;
 	}
 
+	ret = asprintf(&outputpath, "%s/%s", outputdir, type_folder);
+	if (ret < 0)
+		return NULL;
+
 	// Check the path folder and create the folders if they are not there
-	dupPath = strdup(outputpath);
-	ret = stat(dupPath, &statBuff);
+	ret = stat(outputpath, &statBuff);
 	if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
-		folder = strtok(dupPath, "/");
+		folder = strtok(outputpath, "/");
 		while (folder != NULL) {
 			ret = stat(folder, &statBuff);
 			if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
 				check = mkdir(folder, S_IRWXU);
 				if (check != 0) {
 					fprintf(stderr, "making directory error: %s\n",
-						dupPath);
+						folder);
 					exit(-1);
 				}
 			}
@@ -169,8 +171,13 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 	}
 	chdir(cwd);
 	free(cwd);
-	free(dupPath);
-	strcat(outputpath, pdf->file_name);
+	free(outputpath);
+
+	ret = asprintf(&outputpath, "%s/%s/%s", outputdir, type_folder,
+		       pdf->file_name);
+	if (ret < 0)
+		return NULL;
+
 	return outputpath;
 }
 
@@ -275,9 +282,8 @@ static void process_trace(void)
 			// A new flow item reated with empty dump file object
 			fname = new_file_name(src_ip, dst_ip, src_port,
 					      dst_port, hdr.ts.tv_sec);
-			memcpy(pair->pdf.file_name, fname, strlen(fname));
+			pair->pdf.file_name = fname;
 			pair->pdf.start_time = hdr.ts.tv_sec;
-			free(fname);
 		} else {
 			if (hdr.ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT) {
 				// Rest the pair to start a new flow with the same 4-tuple, but with
@@ -285,14 +291,15 @@ static void process_trace(void)
 				reset_pdf(&(pair->pdf));
 				fname = new_file_name(src_ip, dst_ip, src_port,
 						      dst_port, hdr.ts.tv_sec);
-				memcpy(pair->pdf.file_name, fname, strlen(fname));
+				pair->pdf.file_name = fname;
 				pair->pdf.start_time = hdr.ts.tv_sec;
-				free(fname);
 			}
 		}
 
 		// Dump the packet to file and close the file
-		FILE *f = fopen(resemble_file_path(&(pair->pdf)), "ab");
+		fname = resemble_file_path(&(pair->pdf));
+		FILE *f = fopen(fname, "ab");
+		free(fname);
 		if (pair->pdf.pkts == 0) {
 			// Call the pcap_dump_fopen to write the pcap file header first
 			// to the new file
