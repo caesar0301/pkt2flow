@@ -31,9 +31,6 @@
  * SOFTWARE.
  */
 
-
-#include <pcap.h>
-
 #define __VERSION__				"1.2"
 #define __AUTHOR__				"X. Chen (chenxm35@gmail.com)"
 #define __GLOBAL_NAME__			"pkt2flow"

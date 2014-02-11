@@ -48,7 +48,7 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
-#include <pcap.h>
+#include <pcap/pcap.h>
 #include "pkt2flow.h"
 
 char tcpsyn = 1;

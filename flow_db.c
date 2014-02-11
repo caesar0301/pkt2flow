@@ -34,7 +34,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <pcap.h>
 #include "pkt2flow.h"
 
 struct ip_pair *pairs [HASH_TBL_SIZE];

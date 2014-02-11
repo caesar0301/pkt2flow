@@ -31,7 +31,9 @@
  */
 
 #include <stdio.h>
-	 
+#include <stdlib.h>
+#include <string.h>
+
 #define IP_LENGTH sizeof("aaa.bbb.ccc.ddd")
 #define FILE_NAME_LEGNTH 64
 char flow_record[] = "flow_names.txt";
