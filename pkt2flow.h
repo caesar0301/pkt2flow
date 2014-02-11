@@ -94,6 +94,11 @@ char *new_file_name(uint32_t src_ip, uint32_t dst_ip,
 void init_hash_table(void);
 
 /*
+ * Free the flow has table
+ */
+void free_hash_table(void);
+
+/*
  * Search for the flow in the flow hash table with specific 4-tuple;
  * If the flow item exists in the hash table, the pointer to the ip_pair will be
  * returned.

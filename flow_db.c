@@ -40,9 +40,25 @@ struct ip_pair *pairs [HASH_TBL_SIZE];
 
 void init_hash_table(void)
 {
-	bzero(pairs, sizeof(struct ip_pair *) * HASH_TBL_SIZE);
+	memset(pairs, 0, sizeof(struct ip_pair *) * HASH_TBL_SIZE);
 }
 
+void free_hash_table(void)
+{
+	size_t b;
+	struct ip_pair *curp;
+
+	for (b = 0; b < HASH_TBL_SIZE; b++) {
+		while (pairs[b]) {
+			curp = pairs[b];
+			pairs[b] = pairs[b]->next;
+			reset_pdf(&curp->pdf);
+			free(curp);
+		}
+	}
+
+	init_hash_table();
+}
 
 static unsigned int hashf(const void *key, size_t sz, unsigned int hash)
 {
