@@ -193,7 +193,7 @@ static void process_trace(void)
 	u_char *pkt = NULL;
 	char *fname = NULL;
 	unsigned short offset;
-	uint32_t src_ip, dst_ip;
+	struct in_addr src_ip, dst_ip;
 	uint16_t src_port, dst_port;
 
 	while ((pkt = (u_char *)pcap_next(inputp, &hdr)) != NULL) {
@@ -207,8 +207,8 @@ static void process_trace(void)
 		if ((iph = (struct ip *)(pkt + EH_SIZE)) == NULL) {
 			continue;
 		}
-		src_ip = ntohl(iph->ip_src.s_addr);
-		dst_ip = ntohl(iph->ip_dst.s_addr);
+		src_ip = iph->ip_src;
+		dst_ip = iph->ip_dst;
 
 		offset = EH_SIZE + (iph->ip_hl * 4);
 		switch (iph->ip_p) {
@@ -250,17 +250,15 @@ static void process_trace(void)
 		}
 
 		// Search for the ip_pair of specific four-tuple
-		pair = find_ip_pair(iph->ip_src.s_addr, iph->ip_dst.s_addr,
-				    src_port, dst_port);
+		pair = find_ip_pair(src_ip, dst_ip, src_port, dst_port);
 		if (pair == NULL) {
 			if ((iph->ip_p == IPPROTO_TCP) && !tcph->syn &&
 			    !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
 				// No SYN detected and don't create a new flow
 				continue;
 			}
-			pair = register_ip_pair(iph->ip_src.s_addr,
-						iph->ip_dst.s_addr, src_port,
-						dst_port);
+			pair = register_ip_pair(src_ip, dst_ip,
+						src_port, dst_port);
 			switch (iph->ip_p) {
 			case IPPROTO_TCP:
 				if (tcph->syn)

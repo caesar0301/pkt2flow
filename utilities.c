@@ -35,39 +35,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
+#include <arpa/inet.h>
 #include "pkt2flow.h"
 
-static char *ip_ntos(uint32_t n)
-{
-	char *buf;
-	int ret;
-
-	ret = asprintf(&buf, "%u.%u.%u.%u",
-		       (n & 0xff000000) >> 24,
-	               (n & 0x00ff0000) >> 16,
-		       (n & 0x0000ff00) >> 8,
-		       (n & 0x000000ff) >> 0);
-	if (ret < 0)
-		buf = NULL;
-
-	return buf;
-}
-
-char *new_file_name(uint32_t src_ip, uint32_t dst_ip,
+char *new_file_name(struct in_addr src_ip, struct in_addr dst_ip,
                     uint16_t src_tcp, uint16_t dst_tcp,
                     unsigned long timestamp)
 {
 	char *fname;
-	char *src_ip_str = ip_ntos(src_ip);
-	char *dst_ip_str = ip_ntos(dst_ip);
+	char src_ip_str[INET_ADDRSTRLEN];
+	char dst_ip_str[INET_ADDRSTRLEN];
 	int ret;
+
+	inet_ntop(AF_INET, &src_ip, src_ip_str, INET_ADDRSTRLEN);
+	inet_ntop(AF_INET, &dst_ip, dst_ip_str, INET_ADDRSTRLEN);
 
 	ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
 		       src_ip_str, src_tcp, dst_ip_str, dst_tcp, timestamp);
 	if (ret < 0)
 		fname = NULL;
 
-	free(src_ip_str);
-	free(dst_ip_str);
 	return fname;
 }
