@@ -126,7 +126,6 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 	char *folder = NULL;
 	char *dupPath = NULL;
 	int check;
-	DIR *dirPtr = NULL;
 	struct stat statBuff;
 	int ret;
 

@@ -67,7 +67,6 @@ struct ip_pair *find_ip_pair(unsigned int src_ip, unsigned int dst_ip,
                              unsigned short src_tcp, unsigned short dst_tcp)
 {
 	struct ip_pair *p;
-	struct ip_pair *newp;
 	unsigned int hash = 0;
 	unsigned short i;
 
@@ -109,7 +108,6 @@ struct ip_pair *find_ip_pair(unsigned int src_ip, unsigned int dst_ip,
 struct ip_pair *register_ip_pair(unsigned int src_ip, unsigned int dst_ip,
                                  unsigned short src_tcp, unsigned short dst_tcp)
 {
-	struct ip_pair *p;
 	struct ip_pair *newp;
 	unsigned int hash = 0;
 	unsigned short i;
