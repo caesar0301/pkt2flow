@@ -1,8 +1,9 @@
 /* pkt2flow
  * Xiaming Chen (chen_xm@sjtu.edu.cn)
- * 
+ *
  * Copyright (c) 2012
- * 
+ * Copyright (C) 2014  Sven Eckelmann <sven@narfation.org>
+ *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
  * (the "Software"), to deal in the Software without restriction,
@@ -10,16 +11,16 @@
  * publish, distribute, sublicense, and/or sell copies of the Software,
  * and to permit persons to whom the Software is furnished to do so,
  * subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
+ *
  * The names and trademarks of copyright holders may not be used in
  * advertising or publicity pertaining to the software without specific
  * prior permission. Title to copyright in this software and any
  * associated documentation will at all times remain with the copyright
  * holders.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -29,123 +30,139 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#define _BSD_SOURCE
 
+#include <getopt.h>
+#include <net/ethernet.h>
+#include <netinet/in.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/ip6.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <pcap/pcap.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <arpa/inet.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <net/if.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
-#include <pcap.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "pkt2flow.h"
 
-char tcpsyn = 1;
-char dumpudp = 0;
-char *readfile = NULL;
+static uint32_t dump_allowed;
+static char *readfile = NULL;
 //char *interface = NULL;
-char *outputdir = "pkt2flow.out";
-char outputpath[PATH_NAME_LENGTH];
-pcap_t *inputp = NULL;
-struct ip_pair *pairs [HASH_TBL_SIZE];
+static char *outputdir = "pkt2flow.out";
+static pcap_t *inputp = NULL;
+struct ip_pair *pairs[HASH_TBL_SIZE];
 
-void usage (char *progname)
+static void usage(char *progname)
 {
-	fprintf (stderr,"Name: %s\n", __GLOBAL_NAME__);
-	fprintf (stderr,"Version: %s\n", __VERSION__);
-	fprintf (stderr,"Author: %s\n", __AUTHOR__);
-	fprintf (stderr,"Program to seperate the packets into flows (UDP or TCP).\n\n");
-	fprintf (stderr,"Usage: %s [-huv] [-o outdir] pcapfile\n\n", progname);
-	fprintf (stderr,"Options:\n");
-	fprintf (stderr,"	-h	print this help and exit\n");
-	fprintf (stderr,"	-u	also dump (U)DP flows\n");
-	fprintf (stderr,"	-v	also dump the in(v)alid TCP flows without the SYN option\n");
-	fprintf (stderr,"	-o	(o)utput directory\n");
+	fprintf(stderr, "Name: %s\n", __GLOBAL_NAME__);
+	fprintf(stderr, "Version: %s\n", __SOURCE_VERSION__);
+	fprintf(stderr, "Author: %s\n", __AUTHOR__);
+	fprintf(stderr, "Program to seperate the packets into flows (UDP or TCP).\n\n");
+	fprintf(stderr, "Usage: %s [-huv] [-o outdir] pcapfile\n\n", progname);
+	fprintf(stderr, "Options:\n");
+	fprintf(stderr, "	-h	print this help and exit\n");
+	fprintf(stderr, "	-u	also dump (U)DP flows\n");
+	fprintf(stderr, "	-v	also dump the in(v)alid TCP flows without the SYN option\n");
+	fprintf(stderr, "	-x	also dump non-UDP/non-TCP IP flows\n");
+	fprintf(stderr, "	-o	(o)utput directory\n");
 }
 
 
-void parseargs (int argc,char *argv[])
+static void parseargs(int argc, char *argv[])
 {
 	int opt;
-	const char *optstr = "uvo:h";
-	while((opt = getopt(argc, argv, optstr)) != -1){
-		switch(opt){
-			case 'h':
-				usage(argv [0]);
-				exit(-1);
-			case 'o':
-				outputdir = optarg;
-				break;
-			case 'u':
-				dumpudp = 1;
-				break;
-			case 'v':
-				tcpsyn = 0;
-				break;
-			default:
-				usage(argv [0]);
-				exit(-1);
+	const char *optstr = "uvxo:h";
+	while ((opt = getopt(argc, argv, optstr)) != -1) {
+		switch (opt) {
+		case 'h':
+			usage(argv [0]);
+			exit(-1);
+		case 'o':
+			outputdir = optarg;
+			break;
+		case 'u':
+			dump_allowed |= DUMP_UDP_ALLOWED;
+			break;
+		case 'v':
+			dump_allowed |= DUMP_TCP_NOSYN_ALLOWED;
+			break;
+		case 'x':
+			dump_allowed |= DUMP_OTHER_ALLOWED;
+			break;
+		default:
+			usage(argv [0]);
+			exit(-1);
 		}
 	}
-	
+
 	if (optind < argc)
 		readfile = argv[optind];
-	if (readfile == NULL){
-		fprintf (stderr, "pcap file not given\n");
+	if (readfile == NULL) {
+		fprintf(stderr, "pcap file not given\n");
 		usage(argv[0]);
-		exit (1);
+		exit(1);
 	}
 }
 
-void open_trace_file ()
+static void open_trace_file(void)
 {
 	char errbuf [PCAP_ERRBUF_SIZE];
-	
-	if ((inputp = pcap_open_offline (readfile, errbuf)) == NULL){
-		fprintf (stderr,"error opening tracefile %s: %s\n", readfile, errbuf);
-		exit (1);
+
+	inputp = pcap_open_offline(readfile, errbuf);
+	if (!inputp) {
+		fprintf(stderr, "error opening tracefile %s: %s\n", readfile,
+			errbuf);
+		exit(1);
 	}
 }
 
-char *resemble_file_path(struct pkt_dump_file *pdf){
-	char *cwd = getcwd(NULL, 0);	// backup the current working directory
+static char *resemble_file_path(struct pkt_dump_file *pdf)
+{
+	char *cwd = getcwd(NULL, 0);    // backup the current working directory
 	char *folder = NULL;
-	char *dupPath = NULL;
 	int check;
-	DIR *dirPtr = NULL;
 	struct stat statBuff;
+	int ret;
+	const char *type_folder;
+	char *outputpath;
 
-	strcpy(outputpath, outputdir);
-	strcat(outputpath, "/");
-	if (pdf->status == STS_TCP_SYN)
-		strcat(outputpath, "tcp_syn/");	
-	else if (pdf->status == STS_TCP_NOSYN)
-		strcat(outputpath, "tcp_nosyn/");
-	else if (pdf->status == STS_UDP)
-		strcat(outputpath, "udp/");
-	else
-		strcat(outputpath, "others/");
+	switch (pdf->status) {
+	case STS_TCP_SYN:
+		type_folder = "tcp_syn";
+		break;
+	case STS_TCP_NOSYN:
+		type_folder = "tcp_nosyn";
+		break;
+	case STS_UDP:
+		type_folder = "udp";
+		break;
+	case STS_UNSET:
+		type_folder = "others";
+		break;
+	}
+
+	ret = asprintf(&outputpath, "%s/%s", outputdir, type_folder);
+	if (ret < 0)
+		return NULL;
 
 	// Check the path folder and create the folders if they are not there
-	dupPath = strdup(outputpath);
-	if(!(stat(dupPath, &statBuff) != -1 && S_ISDIR(statBuff.st_mode))) {
-		folder = strtok(dupPath, "/");
-		while (folder != NULL){
-			if (!(stat(folder, &statBuff) != -1 && S_ISDIR(statBuff.st_mode))){
+	ret = stat(outputpath, &statBuff);
+	if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
+		folder = strtok(outputpath, "/");
+		while (folder != NULL) {
+			ret = stat(folder, &statBuff);
+			if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
 				check = mkdir(folder, S_IRWXU);
-				if (check != 0){
-					fprintf(stderr, "making directory error: %s\n", dupPath);
+				if (check != 0) {
+					fprintf(stderr, "making directory error: %s\n",
+						folder);
 					exit(-1);
 				}
 			}
@@ -155,136 +172,277 @@ char *resemble_file_path(struct pkt_dump_file *pdf){
 	}
 	chdir(cwd);
 	free(cwd);
-	free(dupPath);
-	strcat(outputpath, pdf->file_name);
+	free(outputpath);
+
+	ret = asprintf(&outputpath, "%s/%s/%s", outputdir, type_folder,
+		       pdf->file_name);
+	if (ret < 0)
+		return NULL;
+
 	return outputpath;
 }
 
-void process_trace ()
+static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
+			      size_t len, uint8_t proto)
+{
+	struct tcphdr *tcphdr;
+	struct udphdr *udphdr;
+
+	switch (proto) {
+	case IPPROTO_UDP:
+		if (len < sizeof(*udphdr))
+			return -1;
+
+		udphdr = (struct udphdr *)bytes;
+		af_6tuple->protocol = IPPROTO_UDP;
+		af_6tuple->port1 = ntohs(udphdr->source);
+		af_6tuple->port2 = ntohs(udphdr->dest);
+		return 0;
+	case IPPROTO_TCP:
+		if (len < sizeof(*tcphdr))
+			return -1;
+
+		tcphdr = (struct tcphdr *)bytes;
+		af_6tuple->protocol = IPPROTO_TCP;
+		af_6tuple->port1 = ntohs(tcphdr->source);
+		af_6tuple->port2 = ntohs(tcphdr->dest);
+
+		if (tcphdr->syn)
+			return 1;
+		else
+			return 0;
+	default:
+		af_6tuple->protocol = 0;
+		af_6tuple->port1 = 0;
+		af_6tuple->port2 = 0;
+		return 0;
+	}
+}
+
+static int pcap_handle_ipv4(struct af_6tuple *af_6tuple, const u_char *bytes,
+			    size_t len)
+{
+	struct ip *iphdr;
+
+	if (len < sizeof(*iphdr))
+		return -1;
+
+	iphdr = (struct ip *)bytes;
+	if (len > ntohs(iphdr->ip_len))
+		len = ntohs(iphdr->ip_len);
+
+	if (len < 4 * iphdr->ip_hl)
+		return -1;
+
+	len -= 4 * iphdr->ip_hl;
+	bytes += 4 * iphdr->ip_hl;
+
+	af_6tuple->af_family = AF_INET;
+	af_6tuple->ip1.v4 = iphdr->ip_src;
+	af_6tuple->ip2.v4 = iphdr->ip_dst;
+
+	return pcap_handle_layer4(af_6tuple, bytes, len, iphdr->ip_p);
+}
+
+static int pcap_handle_ipv6(struct af_6tuple *af_6tuple, const u_char *bytes,
+			     size_t len)
+{
+	struct ip6_hdr *iphdr;
+	struct ip6_opt *opthdr;
+	int curheader = 255;
+	uint8_t nexthdr;
+
+	while (1) {
+		switch (curheader) {
+		case 255:
+			if (len < sizeof(*iphdr))
+				return -1;
+			iphdr = (struct ip6_hdr *)bytes;
+			bytes += sizeof(*iphdr);
+			len -= sizeof(*iphdr);
+			nexthdr = iphdr->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+
+			af_6tuple->af_family = AF_INET6;
+			af_6tuple->ip1.v6 = iphdr->ip6_src;
+			af_6tuple->ip2.v6 = iphdr->ip6_dst;
+			break;
+		case IPPROTO_HOPOPTS:
+		case IPPROTO_ROUTING:
+		case IPPROTO_DSTOPTS:
+			if (len < sizeof(*opthdr))
+				return -1;
+			nexthdr = bytes[0];
+
+			opthdr = (struct ip6_opt *)bytes;
+			if (len < ((1u + opthdr->ip6o_len) * 8u))
+				return -1;
+			bytes += (1u + opthdr->ip6o_len) * 8u;
+			len -= (1u + opthdr->ip6o_len) * 8u;
+			break;
+		case IPPROTO_FRAGMENT:
+			if (len < 1)
+				return -1;
+			nexthdr = bytes[0];
+			if (len < 8)
+				return -1;
+			bytes += 8;
+			len -= 8;
+			break;
+		case IPPROTO_NONE:
+			return -1;
+		default:
+			return pcap_handle_layer4(af_6tuple, bytes, len,
+						  nexthdr);
+		};
+		curheader = nexthdr;
+	}
+}
+
+static int pcap_handle_ip(struct af_6tuple *af_6tuple, const u_char *bytes,
+			  size_t len)
+{
+	if (len < 1)
+		return -1;
+
+	/* IP header */
+	if ((bytes[0] >> 4) == 4)
+		return pcap_handle_ipv4(af_6tuple, bytes, len);
+
+	if ((bytes[0] >> 4) == 6)
+		return pcap_handle_ipv6(af_6tuple, bytes, len);
+
+	return -1;
+}
+
+static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
+				const struct pcap_pkthdr *h,
+				const u_char *bytes)
+{
+	size_t len = h->caplen;
+	struct ether_header *ethhdr;
+
+	/* Ethernet header */
+	if (len < sizeof(*ethhdr))
+		return - 1;
+
+	ethhdr = (struct ether_header *)bytes;
+	len -= sizeof(*ethhdr);
+	bytes += sizeof(*ethhdr);
+
+	if (ntohs(ethhdr->ether_type) != ETHERTYPE_IP &&
+	    ntohs(ethhdr->ether_type) != ETHERTYPE_IPV6)
+		return -1;
+
+	return pcap_handle_ip(af_6tuple, bytes, len);
+}
+
+static void process_trace(void)
 {
 	struct pcap_pkthdr hdr;
-	struct ether_header *ethh = NULL;
-	struct ip *iph = NULL;
-	struct tcphdr *tcph = NULL;
-	struct udphdr *udph = NULL;
+	int syn_detected;
 	struct ip_pair *pair =  NULL;
-	struct pcap_dumper_t *dumper = NULL;
+	pcap_dumper_t *dumper = NULL;
 	u_char *pkt = NULL;
 	char *fname = NULL;
-	unsigned short offset;
-	unsigned long src_ip, dst_ip;
-	unsigned short src_port, dst_port;
-	
-	while ((pkt = (u_char *)pcap_next (inputp, &hdr)) != NULL){
-		// Get IP layer information
-		ethh = (struct ether_header *)pkt;
-		if (hdr.caplen < (EH_SIZE + sizeof (struct ip)) || ntohs(ethh->ether_type) != EH_IP){
-			// Omit the non-IP packets
+	struct af_6tuple af_6tuple;
+
+	while ((pkt = (u_char *)pcap_next(inputp, &hdr)) != NULL) {
+		syn_detected = pcap_handle_ethernet(&af_6tuple, &hdr, pkt);
+		if (syn_detected < 0)
 			continue;
-		}
-		if ((iph = (struct ip *)(pkt + EH_SIZE)) == NULL){
-			continue;
-		}
-		src_ip = ntohl(iph->ip_src.s_addr);
-		dst_ip = ntohl(iph->ip_dst.s_addr);
-		
-		offset = EH_SIZE + (iph->ip_hl * 4);
-		if (iph->ip_p != IPPROTO_TCP ){
-			// Check the flag to dump UDP or not
-			if(dumpudp == 0)
-				// Omit the non-TCP packets
+
+		switch (af_6tuple.protocol) {
+		case IPPROTO_TCP:
+			/* always accept tcp */
+			break;
+		case IPPROTO_UDP:
+			if (!isset_bits(dump_allowed, DUMP_UDP_ALLOWED))
+				// Omit the UDP packets
 				continue;
-			else
-				if(iph->ip_p != IPPROTO_UDP)
-					// Omit the non-TCP or non-UDP packets
-					continue;
-		}
-		
-		// Get the src and dst ports of TCP or UDP
-		if (iph->ip_p == IPPROTO_TCP){
-			if (hdr.caplen < offset + sizeof(struct tcphdr))
+			break;
+		default:
+			if (!isset_bits(dump_allowed, DUMP_OTHER_ALLOWED))
+				// Omit the other packets
 				continue;
-			tcph = (struct tcphdr *)(pkt + offset);
-			src_port = ntohs(tcph->th_sport);
-			dst_port = ntohs(tcph->th_dport);
+			break;
 		}
-		if (iph->ip_p == IPPROTO_UDP){
-			if (hdr.caplen < offset + sizeof(struct udphdr))
-				continue;
-			udph = (struct udph *)(pkt + offset);
-			src_port = ntohs(udph->uh_sport);
-			dst_port = ntohs(udph->uh_dport);
-		}
-		
+
 		// Search for the ip_pair of specific four-tuple
-		pair = find_ip_pair (iph->ip_src.s_addr,iph->ip_dst.s_addr,src_port, dst_port);
-		if (pair == NULL){
-			if ((iph->ip_p == IPPROTO_TCP) && (tcpsyn == 1) && ((tcph->th_flags & TH_SYN) != TH_SYN)){
+		pair = find_ip_pair(af_6tuple);
+		if (pair == NULL) {
+			if ((af_6tuple.protocol == IPPROTO_TCP) &&
+			    !syn_detected &&
+			    !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
 				// No SYN detected and don't create a new flow
 				continue;
 			}
-			pair = register_ip_pair (iph->ip_src.s_addr,iph->ip_dst.s_addr,src_port, dst_port);
-			if (iph->ip_p == IPPROTO_UDP)
-				pair->pdf.status = STS_UDP;
-			else{
-				if ((tcph->th_flags & TH_SYN) == TH_SYN)
+			pair = register_ip_pair(af_6tuple);
+			switch (af_6tuple.protocol) {
+			case IPPROTO_TCP:
+				if (syn_detected)
 					pair->pdf.status = STS_TCP_SYN;
 				else
 					pair->pdf.status = STS_TCP_NOSYN;
-			}	
+				break;
+			case IPPROTO_UDP:
+				pair->pdf.status = STS_UDP;
+				break;
+			default:
+				pair->pdf.status = STS_UNSET;
+				break;
+			}
 		}
 
 		// Fill the ip_pair with information of the current flow
-		if(pair->pdf.pkts == 0){
+		if (pair->pdf.pkts == 0) {
 			// A new flow item reated with empty dump file object
-			fname = new_file_name(src_ip, dst_ip, src_port, dst_port, hdr.ts.tv_sec);
-			memcpy(pair->pdf.file_name, fname, strlen(fname));
+			fname = new_file_name(af_6tuple, hdr.ts.tv_sec);
+			pair->pdf.file_name = fname;
 			pair->pdf.start_time = hdr.ts.tv_sec;
-			free(fname);
-		}else{
-			if(hdr.ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT){
+		} else {
+			if (hdr.ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT) {
 				// Rest the pair to start a new flow with the same 4-tuple, but with
 				// the different name and timestamp
 				reset_pdf(&(pair->pdf));
-				fname = new_file_name(src_ip, dst_ip, src_port, dst_port, hdr.ts.tv_sec);
-				memcpy(pair->pdf.file_name, fname, strlen(fname));
+				fname = new_file_name(af_6tuple, hdr.ts.tv_sec);
+				pair->pdf.file_name = fname;
 				pair->pdf.start_time = hdr.ts.tv_sec;
-				free(fname);
 			}
 		}
-		
+
 		// Dump the packet to file and close the file
-		FILE *f = fopen(resemble_file_path(&(pair->pdf)), "ab");
-		if(pair->pdf.pkts == 0){
+		fname = resemble_file_path(&(pair->pdf));
+		FILE *f = fopen(fname, "ab");
+		free(fname);
+		if (pair->pdf.pkts == 0) {
 			// Call the pcap_dump_fopen to write the pcap file header first
 			// to the new file
 			dumper = pcap_dump_fopen(inputp, f);
-		}else{
+		} else {
 			// Write the packet only
 			dumper = (pcap_dumper_t *)f;
 		}
 		// Dump the packet now
-		pcap_dump ((u_char *)dumper, &hdr, (unsigned char *)pkt);
+		pcap_dump((u_char *)dumper, &hdr, (unsigned char *)pkt);
 		pcap_dump_close(dumper);
 		pair->pdf.pkts++;
 	}
 }
 
 
-void close_trace_files ()
+static void close_trace_files(void)
 {
-	pcap_close (inputp);
+	pcap_close(inputp);
 }
 
 
-int main (argc,argv)
-int argc;
-char *argv [];
+int main(int argc, char *argv[])
 {
-	parseargs (argc,argv);
-	open_trace_file ();
-	init_hash_table ();
-	process_trace ();
-	close_trace_files ();
-	exit (0);
+	parseargs(argc, argv);
+	open_trace_file();
+	init_hash_table();
+	process_trace();
+	close_trace_files();
+	free_hash_table();
+	exit(0);
 }

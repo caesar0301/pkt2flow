@@ -50,5 +50,6 @@ Usage: ./pkt2flow [-huv] [-o outdir] pcapfile
 		-h	print this help and exit
 		-u	also dump (U)DP flows
 		-v	also dump the in(v)alid TCP flows without the SYN option
+		-x	also dump non-UDP/non-TCP IP flows
 		-o	(o)utput directory
 
