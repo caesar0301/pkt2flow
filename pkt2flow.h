@@ -31,6 +31,8 @@
  * SOFTWARE.
  */
 
+#include <stdint.h>
+
 #define __SOURCE_VERSION__              "1.2"
 #define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
 #define __GLOBAL_NAME__                 "pkt2flow"
@@ -68,8 +70,8 @@ struct pkt_dump_file {
 };
 
 struct ip_pair {
-	unsigned int ip1, ip2;
-	unsigned short port1, port2;
+	uint32_t ip1, ip2;
+	uint16_t port1, port2;
 	struct pkt_dump_file pdf;
 	struct ip_pair *next;
 };
@@ -82,8 +84,8 @@ extern struct ip_pair *pairs[];
 /*
  * Generate a new file name for flow with 4-tuple and timestamp
  */
-char *new_file_name(unsigned int src_ip, unsigned int dst_ip,
-		    unsigned short src_tcp, unsigned short dst_tcp,
+char *new_file_name(uint32_t src_ip, uint32_t dst_ip,
+		    uint16_t src_tcp, uint16_t dst_tcp,
 		    unsigned long timestamp);
 
 /* flow_db.c */
@@ -99,8 +101,8 @@ void init_hash_table(void);
  * returned.
  * Otherwise, NULL returned;
  */
-struct ip_pair *find_ip_pair(unsigned int src_ip, unsigned int dst_ip,
-			     unsigned short src_tcp, unsigned short dst_tcp);
+struct ip_pair *find_ip_pair(uint32_t src_ip, uint32_t dst_ip,
+			     uint16_t src_tcp, uint16_t dst_tcp);
 
 /*
  * To register a new flow item in the flow hash table. This is uaually called
@@ -108,8 +110,8 @@ struct ip_pair *find_ip_pair(unsigned int src_ip, unsigned int dst_ip,
  * The pointer to the new registerd ip_pair will be returned; and the pdf will
  * be reset as empty.
  */
-struct ip_pair *register_ip_pair(unsigned int src_ip, unsigned int dst_ip,
-				 unsigned short src_tcp, unsigned short dst_tcp);
+struct ip_pair *register_ip_pair(uint32_t src_ip, uint32_t dst_ip,
+				 uint16_t src_tcp, uint16_t dst_tcp);
 
 /*
  * Reset the packet dump file (pdf) for: 1) a new ip_pair created;

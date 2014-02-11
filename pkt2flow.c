@@ -187,8 +187,8 @@ static void process_trace(void)
 	u_char *pkt = NULL;
 	char *fname = NULL;
 	unsigned short offset;
-	unsigned long src_ip, dst_ip;
-	unsigned short src_port, dst_port;
+	uint32_t src_ip, dst_ip;
+	uint16_t src_port, dst_port;
 
 	while ((pkt = (u_char *)pcap_next(inputp, &hdr)) != NULL) {
 		// Get IP layer information
