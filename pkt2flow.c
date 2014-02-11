@@ -66,11 +66,12 @@ static void usage(char *progname)
 	fprintf(stderr, "Version: %s\n", __SOURCE_VERSION__);
 	fprintf(stderr, "Author: %s\n", __AUTHOR__);
 	fprintf(stderr, "Program to seperate the packets into flows (UDP or TCP).\n\n");
-	fprintf(stderr, "Usage: %s [-huv] [-o outdir] pcapfile\n\n", progname);
+	fprintf(stderr, "Usage: %s [-huvx] [-o outdir] pcapfile\n\n", progname);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "	-h	print this help and exit\n");
 	fprintf(stderr, "	-u	also dump (U)DP flows\n");
 	fprintf(stderr, "	-v	also dump the in(v)alid TCP flows without the SYN option\n");
+	fprintf(stderr, "	-x	also dump non-UDP/non-TCP IP flows\n");
 	fprintf(stderr, "	-o	(o)utput directory\n");
 }
 
@@ -78,7 +79,7 @@ static void usage(char *progname)
 static void parseargs(int argc, char *argv[])
 {
 	int opt;
-	const char *optstr = "uvo:h";
+	const char *optstr = "uvxo:h";
 	while ((opt = getopt(argc, argv, optstr)) != -1) {
 		switch (opt) {
 		case 'h':
@@ -92,6 +93,9 @@ static void parseargs(int argc, char *argv[])
 			break;
 		case 'v':
 			dump_allowed |= DUMP_TCP_NOSYN_ALLOWED;
+			break;
+		case 'x':
+			dump_allowed |= DUMP_OTHER_ALLOWED;
 			break;
 		default:
 			usage(argv [0]);
