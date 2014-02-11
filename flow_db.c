@@ -30,10 +30,12 @@
  * SOFTWARE.
  */
 
+#include <netinet/in.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
+#include <sys/socket.h>
 #include "pkt2flow.h"
 
 struct ip_pair *pairs [HASH_TBL_SIZE];
@@ -81,73 +83,84 @@ void reset_pdf(struct pkt_dump_file *f)
 	f->file_name = NULL;
 }
 
-struct ip_pair *find_ip_pair(struct in_addr src_ip, struct in_addr dst_ip,
-                             uint16_t src_tcp, uint16_t dst_tcp)
+static unsigned int hash_5tuple(struct af_5tuple af_5tuple)
 {
-	struct ip_pair *p;
-	unsigned int hash = 0;
-	unsigned short i;
+	unsigned int hash1 = 0;
+	unsigned int hash2 = 0;
+	int i;
 
 	for (i = 0; i < 2; i++) {
 		if (i == 0) {
-			hash = hashf(&src_ip, 4, 0);
-			hash = hashf(&dst_ip, 4, hash);
-			if (src_tcp)
-				hash = hashf(&src_tcp, 2, hash);
-			if (dst_tcp)
-				hash = hashf(&dst_tcp, 2, hash);
-		} else {
-			hash = hashf(&dst_ip, 4, 0);
-			hash = hashf(&src_ip, 4, hash);
-			if (dst_tcp)
-				hash = hashf(&dst_tcp, 2, hash);
-			if (src_tcp)
-				hash = hashf(&src_tcp, 2, hash);
-		}
-		hash = hash % HASH_TBL_SIZE;
-		if (pairs [hash] != NULL) {
-			for (p = pairs [hash]; p != NULL; p = p->next) {
-				if ((!memcmp(&src_ip, &p->ip1, 4) &&
-				     !memcmp(&dst_ip, &p->ip2, 4) &&
-				     !memcmp(&src_tcp, &p->port1, 2) &&
-				     !memcmp(&dst_tcp, &p->port2, 2)) ||
-				    (!memcmp(&dst_ip, &p->ip1, 4) &&
-				     !memcmp(&src_ip, &p->ip2, 4) &&
-				     !memcmp(&dst_tcp, &p->port1, 2) &&
-				     !memcmp(&src_tcp, &p->port2, 2)))
-					return p;
+			switch (af_5tuple.af_family) {
+			case AF_INET:
+				hash1 = hashf(&af_5tuple.ip1.v4, 4, hash1);
+				hash1 = hashf(&af_5tuple.ip2.v4, 4, hash1);
+				break;
 			}
+			if (af_5tuple.port1)
+				hash1 = hashf(&af_5tuple.port1, 2, hash1);
+			if (af_5tuple.port2)
+				hash1 = hashf(&af_5tuple.port2, 2, hash1);
+		} else {
+			switch (af_5tuple.af_family) {
+			case AF_INET:
+				hash2 = hashf(&af_5tuple.ip2.v4, 4, hash2);
+				hash2 = hashf(&af_5tuple.ip1.v4, 4, hash2);
+				break;
+			}
+			if (af_5tuple.port2)
+				hash2 = hashf(&af_5tuple.port2, 2, hash2);
+			if (af_5tuple.port1)
+				hash2 = hashf(&af_5tuple.port1, 2, hash2);
+		}
+	}
+
+	return (hash1 + hash2) % HASH_TBL_SIZE;
+}
+
+static int compare_5tuple(struct af_5tuple af1, struct af_5tuple af2)
+{
+	if (af1.af_family != af2.af_family)
+		return 0;
+
+	switch (af1.af_family) {
+	case AF_INET:
+		if (memcmp(&af1.ip1.v4, &af2.ip1.v4, sizeof(af1.ip1.v4)) == 0 &&
+		    memcmp(&af1.ip2.v4, &af2.ip2.v4, sizeof(af1.ip2.v4)) == 0 &&
+		    af1.port1 == af2.port1 && af1.port2 == af2.port2)
+			return 1;
+		if (memcmp(&af1.ip1.v4, &af2.ip2.v4, sizeof(af1.ip1.v4)) == 0 &&
+		    memcmp(&af1.ip2.v4, &af2.ip1.v4, sizeof(af1.ip2.v4)) == 0 &&
+		    af1.port1 == af2.port2 && af1.port2 == af2.port1)
+			return 1;
+		break;
+	}
+
+	return 0;
+}
+
+struct ip_pair *find_ip_pair(struct af_5tuple af_5tuple)
+{
+	struct ip_pair *p;
+	unsigned int hash;
+
+	hash = hash_5tuple(af_5tuple);
+	if (pairs[hash]) {
+		for (p = pairs [hash]; p != NULL; p = p->next) {
+			if (compare_5tuple(p->af_5tuple, af_5tuple))
+				return p;
 		}
 	}
 
 	return NULL;
 }
 
-struct ip_pair *register_ip_pair(struct in_addr src_ip, struct in_addr dst_ip,
-                                 uint16_t src_tcp, uint16_t dst_tcp)
+struct ip_pair *register_ip_pair(struct af_5tuple af_5tuple)
 {
 	struct ip_pair *newp;
-	unsigned int hash = 0;
-	unsigned short i;
+	unsigned int hash;
 
-	for (i = 0; i < 2; i++) {
-		if (i == 0) {
-			hash = hashf(&src_ip, 4, 0);
-			hash = hashf(&dst_ip, 4, hash);
-			if (src_tcp)
-				hash = hashf(&src_tcp, 2, hash);
-			if (dst_tcp)
-				hash = hashf(&dst_tcp, 2, hash);
-		} else {
-			hash = hashf(&dst_ip, 4, 0);
-			hash = hashf(&src_ip, 4, hash);
-			if (dst_tcp)
-				hash = hashf(&dst_tcp, 2, hash);
-			if (src_tcp)
-				hash = hashf(&src_tcp, 2, hash);
-		}
-		hash = hash % HASH_TBL_SIZE;
-	}
+	hash = hash_5tuple(af_5tuple);
 
 	newp = (struct ip_pair *)malloc(sizeof(struct ip_pair));
 	if (!newp) {
@@ -155,10 +168,7 @@ struct ip_pair *register_ip_pair(struct in_addr src_ip, struct in_addr dst_ip,
 		exit(1);
 	}
 
-	memcpy(&newp->ip1, &src_ip, 4);
-	memcpy(&newp->ip2, &dst_ip, 4);
-	memcpy(&newp->port1, &src_tcp, 2);
-	memcpy(&newp->port2, &dst_tcp, 2);
+	newp->af_5tuple = af_5tuple;
 	newp->pdf.file_name = NULL;
 	newp->next = pairs [hash];
 	pairs [hash] = newp;
