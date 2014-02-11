@@ -96,6 +96,10 @@ static unsigned int hash_5tuple(struct af_6tuple af_6tuple)
 				hash1 = hashf(&af_6tuple.ip1.v4, 4, hash1);
 				hash1 = hashf(&af_6tuple.ip2.v4, 4, hash1);
 				break;
+			case AF_INET6:
+				hash1 = hashf(&af_6tuple.ip1.v6, 16, hash1);
+				hash1 = hashf(&af_6tuple.ip2.v6, 16, hash1);
+				break;
 			}
 			if (af_6tuple.port1)
 				hash1 = hashf(&af_6tuple.port1, 2, hash1);
@@ -106,6 +110,10 @@ static unsigned int hash_5tuple(struct af_6tuple af_6tuple)
 			case AF_INET:
 				hash2 = hashf(&af_6tuple.ip2.v4, 4, hash2);
 				hash2 = hashf(&af_6tuple.ip1.v4, 4, hash2);
+				break;
+			case AF_INET6:
+				hash2 = hashf(&af_6tuple.ip2.v6, 16, hash2);
+				hash2 = hashf(&af_6tuple.ip1.v6, 16, hash2);
 				break;
 			}
 			if (af_6tuple.port2)
@@ -134,6 +142,16 @@ static int compare_5tuple(struct af_6tuple af1, struct af_6tuple af2)
 			return 1;
 		if (memcmp(&af1.ip1.v4, &af2.ip2.v4, sizeof(af1.ip1.v4)) == 0 &&
 		    memcmp(&af1.ip2.v4, &af2.ip1.v4, sizeof(af1.ip2.v4)) == 0 &&
+		    af1.port1 == af2.port2 && af1.port2 == af2.port1)
+			return 1;
+		break;
+	case AF_INET6:
+		if (memcmp(&af1.ip1.v6, &af2.ip1.v6, sizeof(af1.ip1.v6)) == 0 &&
+		    memcmp(&af1.ip2.v6, &af2.ip2.v6, sizeof(af1.ip2.v6)) == 0 &&
+		    af1.port1 == af2.port1 && af1.port2 == af2.port2)
+			return 1;
+		if (memcmp(&af1.ip1.v6, &af2.ip2.v6, sizeof(af1.ip1.v6)) == 0 &&
+		    memcmp(&af1.ip2.v6, &af2.ip1.v6, sizeof(af1.ip2.v6)) == 0 &&
 		    af1.port1 == af2.port2 && af1.port2 == af2.port1)
 			return 1;
 		break;
