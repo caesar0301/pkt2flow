@@ -38,11 +38,11 @@
 #define FILE_NAME_LEGNTH 64
 char flow_record[] = "flow_names.txt";
 
-char *ip_ntos(unsigned long n)
+char *ip_ntos(unsigned int n)
 {
 	char *buf = (char *)malloc(IP_LENGTH);
 	memset(buf, '\0', IP_LENGTH);
-	sprintf(buf, "%d.%d.%d.%d",
+	sprintf(buf, "%u.%u.%u.%u",
 		(n & 0xff000000) >> 24,
 		(n & 0x00ff0000) >> 16,
 		(n & 0x0000ff00) >> 8,
@@ -66,7 +66,7 @@ unsigned long timestamp;
 	char *dst_ip_str = ip_ntos(dst_ip);
 	char *fname = (char *)malloc(FILE_NAME_LEGNTH);
 	memset(fname, '\0', FILE_NAME_LEGNTH);
-	sprintf(fname, "%s_%d_%s_%d_%d.pcap", src_ip_str, src_tcp, dst_ip_str, dst_tcp, timestamp);
+	sprintf(fname, "%s_%d_%s_%u_%lu.pcap", src_ip_str, src_tcp, dst_ip_str, dst_tcp, timestamp);
 	//fprintf(stderr, "%s\n", buf);
 	//record_flow_name(fname);
 	free(src_ip_str);
