@@ -31,15 +31,17 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include "pkt2flow.h"
 
 #define IP_LENGTH sizeof("aaa.bbb.ccc.ddd")
 #define FILE_NAME_LEGNTH 64
 static const char flow_record[] = "flow_names.txt";
 
-static char *ip_ntos(unsigned int n)
+static char *ip_ntos(uint32_t n)
 {
 	char *buf = (char *)malloc(IP_LENGTH);
 	memset(buf, '\0', IP_LENGTH);
@@ -51,16 +53,16 @@ static char *ip_ntos(unsigned int n)
 	return buf;
 }
 
-char *new_file_name(unsigned int src_ip, unsigned int dst_ip,
-                    unsigned short src_tcp, unsigned short dst_tcp,
+char *new_file_name(uint32_t src_ip, uint32_t dst_ip,
+                    uint16_t src_tcp, uint16_t dst_tcp,
                     unsigned long timestamp)
 {
 	char *src_ip_str = ip_ntos(src_ip);
 	char *dst_ip_str = ip_ntos(dst_ip);
 	char *fname = (char *)malloc(FILE_NAME_LEGNTH);
 	memset(fname, '\0', FILE_NAME_LEGNTH);
-	sprintf(fname, "%s_%d_%s_%u_%lu.pcap", src_ip_str, src_tcp, dst_ip_str,
-		dst_tcp, timestamp);
+	sprintf(fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
+		src_ip_str, src_tcp, dst_ip_str, dst_tcp, timestamp);
 	//fprintf(stderr, "%s\n", buf);
 	free(src_ip_str);
 	free(dst_ip_str);

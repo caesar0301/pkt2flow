@@ -64,8 +64,8 @@ void reset_pdf(struct pkt_dump_file *f)
 	memset(f->file_name, '\0', FILE_NAME_LENGTH);
 }
 
-struct ip_pair *find_ip_pair(unsigned int src_ip, unsigned int dst_ip,
-                             unsigned short src_tcp, unsigned short dst_tcp)
+struct ip_pair *find_ip_pair(uint32_t src_ip, uint32_t dst_ip,
+                             uint16_t src_tcp, uint16_t dst_tcp)
 {
 	struct ip_pair *p;
 	unsigned int hash = 0;
@@ -106,8 +106,8 @@ struct ip_pair *find_ip_pair(unsigned int src_ip, unsigned int dst_ip,
 	return NULL;
 }
 
-struct ip_pair *register_ip_pair(unsigned int src_ip, unsigned int dst_ip,
-                                 unsigned short src_tcp, unsigned short dst_tcp)
+struct ip_pair *register_ip_pair(uint32_t src_ip, uint32_t dst_ip,
+                                 uint16_t src_tcp, uint16_t dst_tcp)
 {
 	struct ip_pair *newp;
 	unsigned int hash = 0;
