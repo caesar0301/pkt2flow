@@ -83,7 +83,7 @@ void reset_pdf(struct pkt_dump_file *f)
 	f->file_name = NULL;
 }
 
-static unsigned int hash_5tuple(struct af_5tuple af_5tuple)
+static unsigned int hash_5tuple(struct af_6tuple af_6tuple)
 {
 	unsigned int hash1 = 0;
 	unsigned int hash2 = 0;
@@ -91,36 +91,39 @@ static unsigned int hash_5tuple(struct af_5tuple af_5tuple)
 
 	for (i = 0; i < 2; i++) {
 		if (i == 0) {
-			switch (af_5tuple.af_family) {
+			switch (af_6tuple.af_family) {
 			case AF_INET:
-				hash1 = hashf(&af_5tuple.ip1.v4, 4, hash1);
-				hash1 = hashf(&af_5tuple.ip2.v4, 4, hash1);
+				hash1 = hashf(&af_6tuple.ip1.v4, 4, hash1);
+				hash1 = hashf(&af_6tuple.ip2.v4, 4, hash1);
 				break;
 			}
-			if (af_5tuple.port1)
-				hash1 = hashf(&af_5tuple.port1, 2, hash1);
-			if (af_5tuple.port2)
-				hash1 = hashf(&af_5tuple.port2, 2, hash1);
+			if (af_6tuple.port1)
+				hash1 = hashf(&af_6tuple.port1, 2, hash1);
+			if (af_6tuple.port2)
+				hash1 = hashf(&af_6tuple.port2, 2, hash1);
 		} else {
-			switch (af_5tuple.af_family) {
+			switch (af_6tuple.af_family) {
 			case AF_INET:
-				hash2 = hashf(&af_5tuple.ip2.v4, 4, hash2);
-				hash2 = hashf(&af_5tuple.ip1.v4, 4, hash2);
+				hash2 = hashf(&af_6tuple.ip2.v4, 4, hash2);
+				hash2 = hashf(&af_6tuple.ip1.v4, 4, hash2);
 				break;
 			}
-			if (af_5tuple.port2)
-				hash2 = hashf(&af_5tuple.port2, 2, hash2);
-			if (af_5tuple.port1)
-				hash2 = hashf(&af_5tuple.port1, 2, hash2);
+			if (af_6tuple.port2)
+				hash2 = hashf(&af_6tuple.port2, 2, hash2);
+			if (af_6tuple.port1)
+				hash2 = hashf(&af_6tuple.port1, 2, hash2);
 		}
 	}
 
 	return (hash1 + hash2) % HASH_TBL_SIZE;
 }
 
-static int compare_5tuple(struct af_5tuple af1, struct af_5tuple af2)
+static int compare_5tuple(struct af_6tuple af1, struct af_6tuple af2)
 {
 	if (af1.af_family != af2.af_family)
+		return 0;
+
+	if (af1.protocol != af2.protocol)
 		return 0;
 
 	switch (af1.af_family) {
@@ -139,15 +142,15 @@ static int compare_5tuple(struct af_5tuple af1, struct af_5tuple af2)
 	return 0;
 }
 
-struct ip_pair *find_ip_pair(struct af_5tuple af_5tuple)
+struct ip_pair *find_ip_pair(struct af_6tuple af_6tuple)
 {
 	struct ip_pair *p;
 	unsigned int hash;
 
-	hash = hash_5tuple(af_5tuple);
+	hash = hash_5tuple(af_6tuple);
 	if (pairs[hash]) {
 		for (p = pairs [hash]; p != NULL; p = p->next) {
-			if (compare_5tuple(p->af_5tuple, af_5tuple))
+			if (compare_5tuple(p->af_6tuple, af_6tuple))
 				return p;
 		}
 	}
@@ -155,12 +158,12 @@ struct ip_pair *find_ip_pair(struct af_5tuple af_5tuple)
 	return NULL;
 }
 
-struct ip_pair *register_ip_pair(struct af_5tuple af_5tuple)
+struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple)
 {
 	struct ip_pair *newp;
 	unsigned int hash;
 
-	hash = hash_5tuple(af_5tuple);
+	hash = hash_5tuple(af_6tuple);
 
 	newp = (struct ip_pair *)malloc(sizeof(struct ip_pair));
 	if (!newp) {
@@ -168,7 +171,7 @@ struct ip_pair *register_ip_pair(struct af_5tuple af_5tuple)
 		exit(1);
 	}
 
-	newp->af_5tuple = af_5tuple;
+	newp->af_6tuple = af_6tuple;
 	newp->pdf.file_name = NULL;
 	newp->next = pairs [hash];
 	pairs [hash] = newp;
