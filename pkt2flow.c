@@ -212,19 +212,25 @@ static void process_trace(void)
 		}
 
 		// Get the src and dst ports of TCP or UDP
-		if (iph->ip_p == IPPROTO_TCP) {
+		switch (iph->ip_p) {
+		case IPPROTO_TCP:
 			if (hdr.caplen < offset + sizeof(struct tcphdr))
 				continue;
 			tcph = (struct tcphdr *)(pkt + offset);
 			src_port = ntohs(tcph->th_sport);
 			dst_port = ntohs(tcph->th_dport);
-		}
-		if (iph->ip_p == IPPROTO_UDP) {
+			break;
+		case IPPROTO_UDP:
 			if (hdr.caplen < offset + sizeof(struct udphdr))
 				continue;
 			udph = (struct udphdr *)(pkt + offset);
 			src_port = ntohs(udph->uh_sport);
 			dst_port = ntohs(udph->uh_dport);
+			break;
+		default:
+			src_port = 0;
+			dst_port = 0;
+			break;
 		}
 
 		// Search for the ip_pair of specific four-tuple
