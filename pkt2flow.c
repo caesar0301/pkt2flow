@@ -131,14 +131,19 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 
 	strcpy(outputpath, outputdir);
 	strcat(outputpath, "/");
-	if (pdf->status == STS_TCP_SYN)
+	switch (pdf->status) {
+	case STS_TCP_SYN:
 		strcat(outputpath, "tcp_syn/");
-	else if (pdf->status == STS_TCP_NOSYN)
+		break;
+	case STS_TCP_NOSYN:
 		strcat(outputpath, "tcp_nosyn/");
-	else if (pdf->status == STS_UDP)
+		break;
+	case STS_UDP:
 		strcat(outputpath, "udp/");
-	else
+		break;
+	case STS_UNSET:
 		strcat(outputpath, "others/");
+	}
 
 	// Check the path folder and create the folders if they are not there
 	dupPath = strdup(outputpath);

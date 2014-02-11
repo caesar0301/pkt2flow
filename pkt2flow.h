@@ -42,14 +42,18 @@
 #define FILE_NAME_LENGTH                128
 #define PATH_NAME_LENGTH                1024
 
+enum pkt_dump_file_status {
+	STS_UNSET,
+	STS_TCP_SYN,
+	STS_TCP_NOSYN,
+	STS_UDP,
+};
+
 struct pkt_dump_file {
 	char file_name[FILE_NAME_LENGTH];
 	unsigned long pkts;
-#define STS_UNSET                       0x0000
-#define STS_TCP_SYN                     0x0001
-#define STS_TCP_NOSYN                   0x0010
-#define STS_UDP                         0x1000
-	unsigned int status;
+
+	enum pkt_dump_file_status status;
 	unsigned long start_time;
 };
 
