@@ -41,14 +41,18 @@
 char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp)
 {
 	char *fname;
-	char src_ip_str[INET_ADDRSTRLEN];
-	char dst_ip_str[INET_ADDRSTRLEN];
+	char src_ip_str[INET6_ADDRSTRLEN];
+	char dst_ip_str[INET6_ADDRSTRLEN];
 	int ret;
 
 	switch (af_6tuple.af_family) {
 	case AF_INET:
 		inet_ntop(AF_INET, &af_6tuple.ip1.v4, src_ip_str, INET_ADDRSTRLEN);
 		inet_ntop(AF_INET, &af_6tuple.ip2.v4, dst_ip_str, INET_ADDRSTRLEN);
+		break;
+	case AF_INET6:
+		inet_ntop(AF_INET6, &af_6tuple.ip1.v6, src_ip_str, INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, &af_6tuple.ip2.v6, dst_ip_str, INET6_ADDRSTRLEN);
 		break;
 	}
 

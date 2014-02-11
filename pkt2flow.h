@@ -33,6 +33,7 @@
 
 #include <stdint.h>
 #include <netinet/in.h>
+#include <netinet/ip6.h>
 
 #define __SOURCE_VERSION__              "1.2"
 #define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
@@ -70,6 +71,7 @@ struct pkt_dump_file {
 
 union ip_address {
 	struct in_addr v4;
+	struct in6_addr v6;
 };
 
 struct af_6tuple {

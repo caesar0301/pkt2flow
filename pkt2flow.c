@@ -33,7 +33,9 @@
 #include <getopt.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>
+#include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
@@ -241,6 +243,60 @@ static int pcap_handle_ipv4(struct af_6tuple *af_6tuple, const u_char *bytes,
 	return pcap_handle_layer4(af_6tuple, bytes, len, iphdr->ip_p);
 }
 
+static int pcap_handle_ipv6(struct af_6tuple *af_6tuple, const u_char *bytes,
+			     size_t len)
+{
+	struct ip6_hdr *iphdr;
+	struct ip6_opt *opthdr;
+	int curheader = 255;
+	uint8_t nexthdr;
+
+	while (1) {
+		switch (curheader) {
+		case 255:
+			if (len < sizeof(*iphdr))
+				return -1;
+			iphdr = (struct ip6_hdr *)bytes;
+			bytes += sizeof(*iphdr);
+			len -= sizeof(*iphdr);
+			nexthdr = iphdr->ip6_ctlun.ip6_un1.ip6_un1_nxt;
+
+			af_6tuple->af_family = AF_INET6;
+			af_6tuple->ip1.v6 = iphdr->ip6_src;
+			af_6tuple->ip2.v6 = iphdr->ip6_dst;
+			break;
+		case IPPROTO_HOPOPTS:
+		case IPPROTO_ROUTING:
+		case IPPROTO_DSTOPTS:
+			if (len < sizeof(*opthdr))
+				return -1;
+			nexthdr = bytes[0];
+
+			opthdr = (struct ip6_opt *)bytes;
+			if (len < ((1u + opthdr->ip6o_len) * 8u))
+				return -1;
+			bytes += (1u + opthdr->ip6o_len) * 8u;
+			len -= (1u + opthdr->ip6o_len) * 8u;
+			break;
+		case IPPROTO_FRAGMENT:
+			if (len < 1)
+				return -1;
+			nexthdr = bytes[0];
+			if (len < 8)
+				return -1;
+			bytes += 8;
+			len -= 8;
+			break;
+		case IPPROTO_NONE:
+			return -1;
+		default:
+			return pcap_handle_layer4(af_6tuple, bytes, len,
+						  nexthdr);
+		};
+		curheader = nexthdr;
+	}
+}
+
 static int pcap_handle_ip(struct af_6tuple *af_6tuple, const u_char *bytes,
 			  size_t len)
 {
@@ -250,6 +306,9 @@ static int pcap_handle_ip(struct af_6tuple *af_6tuple, const u_char *bytes,
 	/* IP header */
 	if ((bytes[0] >> 4) == 4)
 		return pcap_handle_ipv4(af_6tuple, bytes, len);
+
+	if ((bytes[0] >> 4) == 6)
+		return pcap_handle_ipv6(af_6tuple, bytes, len);
 
 	return -1;
 }
@@ -269,7 +328,8 @@ static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
 	len -= sizeof(*ethhdr);
 	bytes += sizeof(*ethhdr);
 
-	if (ntohs(ethhdr->ether_type) != ETHERTYPE_IP)
+	if (ntohs(ethhdr->ether_type) != ETHERTYPE_IP &&
+	    ntohs(ethhdr->ether_type) != ETHERTYPE_IPV6)
 		return -1;
 
 	return pcap_handle_ip(af_6tuple, bytes, len);
