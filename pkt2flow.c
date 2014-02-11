@@ -51,16 +51,16 @@
 #include <pcap/pcap.h>
 #include "pkt2flow.h"
 
-char tcpsyn = 1;
-char dumpudp = 0;
-char *readfile = NULL;
+static char tcpsyn = 1;
+static char dumpudp = 0;
+static char *readfile = NULL;
 //char *interface = NULL;
-char *outputdir = "pkt2flow.out";
-char outputpath[PATH_NAME_LENGTH];
-pcap_t *inputp = NULL;
-struct ip_pair *pairs [HASH_TBL_SIZE];
+static char *outputdir = "pkt2flow.out";
+static char outputpath[PATH_NAME_LENGTH];
+static pcap_t *inputp = NULL;
+struct ip_pair *pairs[HASH_TBL_SIZE];
 
-void usage(char *progname)
+static void usage(char *progname)
 {
 	fprintf(stderr, "Name: %s\n", __GLOBAL_NAME__);
 	fprintf(stderr, "Version: %s\n", __VERSION__);
@@ -75,7 +75,7 @@ void usage(char *progname)
 }
 
 
-void parseargs(int argc, char *argv[])
+static void parseargs(int argc, char *argv[])
 {
 	int opt;
 	const char *optstr = "uvo:h";
@@ -108,7 +108,7 @@ void parseargs(int argc, char *argv[])
 	}
 }
 
-void open_trace_file(void)
+static void open_trace_file(void)
 {
 	char errbuf [PCAP_ERRBUF_SIZE];
 
@@ -120,7 +120,7 @@ void open_trace_file(void)
 	}
 }
 
-char *resemble_file_path(struct pkt_dump_file *pdf)
+static char *resemble_file_path(struct pkt_dump_file *pdf)
 {
 	char *cwd = getcwd(NULL, 0);    // backup the current working directory
 	char *folder = NULL;
@@ -167,7 +167,7 @@ char *resemble_file_path(struct pkt_dump_file *pdf)
 	return outputpath;
 }
 
-void process_trace(void)
+static void process_trace(void)
 {
 	struct pcap_pkthdr hdr;
 	struct ether_header *ethh = NULL;
@@ -284,7 +284,7 @@ void process_trace(void)
 }
 
 
-void close_trace_files(void)
+static void close_trace_files(void)
 {
 	pcap_close(inputp);
 }

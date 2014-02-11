@@ -33,12 +33,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "pkt2flow.h"
 
 #define IP_LENGTH sizeof("aaa.bbb.ccc.ddd")
 #define FILE_NAME_LEGNTH 64
-char flow_record[] = "flow_names.txt";
+static const char flow_record[] = "flow_names.txt";
 
-char *ip_ntos(unsigned int n)
+static char *ip_ntos(unsigned int n)
 {
 	char *buf = (char *)malloc(IP_LENGTH);
 	memset(buf, '\0', IP_LENGTH);
@@ -50,7 +51,7 @@ char *ip_ntos(unsigned int n)
 	return buf;
 }
 
-void record_flow_name(char *fname)
+static void record_flow_name(char *fname)
 {
 	FILE *f = fopen(flow_record, "a+");
 	fputs(fname, f);

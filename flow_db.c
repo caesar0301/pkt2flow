@@ -44,7 +44,7 @@ void init_hash_table(void)
 }
 
 
-unsigned int hashf(char *array, unsigned int sz, unsigned int hash)
+static unsigned int hashf(char *array, unsigned int sz, unsigned int hash)
 {
 	unsigned int h;
 	unsigned int i;
