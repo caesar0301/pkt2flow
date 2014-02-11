@@ -174,7 +174,7 @@ static void process_trace(void)
 	struct tcphdr *tcph = NULL;
 	struct udphdr *udph = NULL;
 	struct ip_pair *pair =  NULL;
-	struct pcap_dumper_t *dumper = NULL;
+	pcap_dumper_t *dumper = NULL;
 	u_char *pkt = NULL;
 	char *fname = NULL;
 	unsigned short offset;
