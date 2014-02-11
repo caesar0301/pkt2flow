@@ -29,7 +29,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#define _BSD_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -227,15 +226,15 @@ static void process_trace(void)
 			if (hdr.caplen < offset + sizeof(struct tcphdr))
 				continue;
 			tcph = (struct tcphdr *)(pkt + offset);
-			src_port = ntohs(tcph->th_sport);
-			dst_port = ntohs(tcph->th_dport);
+			src_port = ntohs(tcph->source);
+			dst_port = ntohs(tcph->dest);
 			break;
 		case IPPROTO_UDP:
 			if (hdr.caplen < offset + sizeof(struct udphdr))
 				continue;
 			udph = (struct udphdr *)(pkt + offset);
-			src_port = ntohs(udph->uh_sport);
-			dst_port = ntohs(udph->uh_dport);
+			src_port = ntohs(udph->source);
+			dst_port = ntohs(udph->dest);
 			break;
 		default:
 			src_port = 0;
@@ -247,8 +246,7 @@ static void process_trace(void)
 		pair = find_ip_pair(iph->ip_src.s_addr, iph->ip_dst.s_addr,
 				    src_port, dst_port);
 		if (pair == NULL) {
-			if ((iph->ip_p == IPPROTO_TCP) &&
-			    ((tcph->th_flags & TH_SYN) != TH_SYN) &&
+			if ((iph->ip_p == IPPROTO_TCP) && !tcph->syn &&
 			    !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
 				// No SYN detected and don't create a new flow
 				continue;
@@ -258,7 +256,7 @@ static void process_trace(void)
 						dst_port);
 			switch (iph->ip_p) {
 			case IPPROTO_TCP:
-				if ((tcph->th_flags & TH_SYN) == TH_SYN)
+				if (tcph->syn)
 					pair->pdf.status = STS_TCP_SYN;
 				else
 					pair->pdf.status = STS_TCP_NOSYN;
