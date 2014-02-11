@@ -44,14 +44,15 @@ void init_hash_table(void)
 }
 
 
-static unsigned int hashf(char *array, unsigned int sz, unsigned int hash)
+static unsigned int hashf(const void *key, size_t sz, unsigned int hash)
 {
 	unsigned int h;
 	unsigned int i;
+	const unsigned char *array = key;
 
 	h = hash;
 	for (i = 0; i < sz; i++)
-		h = (h * HASH_MULTIPLIER) + array [i];
+		h = (h * HASH_MULTIPLIER) + array[i];
 	return (h);
 }
 
