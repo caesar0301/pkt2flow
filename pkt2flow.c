@@ -155,6 +155,10 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 	// Check the path folder and create the folders if they are not there
 	ret = stat(outputpath, &statBuff);
 	if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
+		/* handle absolute path */
+		if (outputpath[0] == '/')
+			chdir("/");
+
 		folder = strtok(outputpath, "/");
 		while (folder != NULL) {
 			ret = stat(folder, &statBuff);
