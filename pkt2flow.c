@@ -417,7 +417,11 @@ static void process_trace(void)
 		// Dump the packet to file and close the file
 		fname = resemble_file_path(&(pair->pdf));
 		FILE *f = fopen(fname, "ab");
-		free(fname);
+		if (!f) {
+			fprintf(stderr, "Failed to open output file '%s'\n", fname);
+			goto skip_dump_write;
+		}
+
 		if (pair->pdf.pkts == 0) {
 			// Call the pcap_dump_fopen to write the pcap file header first
 			// to the new file
@@ -429,6 +433,9 @@ static void process_trace(void)
 		// Dump the packet now
 		pcap_dump((u_char *)dumper, &hdr, (unsigned char *)pkt);
 		pcap_dump_close(dumper);
+
+skip_dump_write:
+		free(fname);
 		pair->pdf.pkts++;
 	}
 }
