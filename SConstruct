@@ -10,8 +10,14 @@ if platform == 'darwin':
       env.Append(CPPFLAGS=['-Ddarwin'])
 
 # Compile the programs
-env.Program(target = './pkt2flow', 
+pkt2flow = env.Program(target = './pkt2flow', 
 			source = Glob('./*.c'),
 			LIBPATH = lib_path,
 			LIBS = libs,
 			CPPPATH = cpp_path)
+
+# install the program
+env.Install(dir = "/usr/local/bin", source = pkt2flow)
+
+# create an install alias
+env.Alias('install', ['/usr/local/bin'])
