@@ -199,8 +199,13 @@ static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
 
 		udphdr = (struct udphdr *)bytes;
 		af_6tuple->protocol = IPPROTO_UDP;
+#ifdef darwin
+		af_6tuple->port1 = ntohs(udphdr->uh_sport);
+		af_6tuple->port2 = ntohs(udphdr->uh_dport);
+#else
 		af_6tuple->port1 = ntohs(udphdr->source);
 		af_6tuple->port2 = ntohs(udphdr->dest);
+#endif
 		return 0;
 	case IPPROTO_TCP:
 		if (len < sizeof(*tcphdr))
@@ -208,10 +213,19 @@ static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
 
 		tcphdr = (struct tcphdr *)bytes;
 		af_6tuple->protocol = IPPROTO_TCP;
+#ifdef darwin
+		af_6tuple->port1 = ntohs(tcphdr->th_sport);
+		af_6tuple->port2 = ntohs(tcphdr->th_dport);
+#else
 		af_6tuple->port1 = ntohs(tcphdr->source);
 		af_6tuple->port2 = ntohs(tcphdr->dest);
+#endif
 
+#ifdef darwin
+            if (tcphdr->th_flags == TH_SYN)
+#else
 		if (tcphdr->syn)
+#endif
 			return 1;
 		else
 			return 0;
