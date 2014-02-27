@@ -3,12 +3,13 @@
 import sys
 env = Environment(CCFLAGS='-Wall -g', CPPFLAGS='-D_GNU_SOURCE')
 
-opts = Variables('pkt2flow.conf')
-opts.Add(PathVariable('PREFIX', 'Directory to install under', '/usr/local', PathVariable.PathIsDir))
-opts.Update(env)
-opts.Save('pkt2flow.conf', env)
-
-Help(opts.GenerateHelpText(env))
+AddOption('--prefix',
+          dest='prefix',
+          nargs=1, type='string',
+          action='store',
+          metavar='DIR',
+          help='installation prefix')
+env = Environment(PREFIX = GetOption('prefix'))
 
 idir_prefix = '$PREFIX'
 idir_bin    = '$PREFIX/bin'
