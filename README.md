@@ -41,6 +41,19 @@ You can follow simple steps to make a compile:
     $ scons
 
 
+How to install (optional)
+----------
+
+You can optionally let scons automatically handle the installation for you by
+providing an installation prefix, e.g.:
+
+    $ PREFIX=/usr/local
+    $ scons --prefix=$PREFIX install
+
+This will build pkt2flow and install the binary to /usr/local/bin/pkt2flow.
+Depending on where you want to install it, you might need to use sudo or
+become the appropriate user.
+
 Usage
 --------
 
