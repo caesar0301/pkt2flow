@@ -1,6 +1,8 @@
 pkt2flow
 ========
 
+[![Build Status](https://travis-ci.org/caesar0301/pkt2flow.svg?branch=master)](https://travis-ci.org/caesar0301/pkt2flow)
+
 by chenxm, Shanghai Jiao Tong Univ.
 chenxm35@gmail.com
 
