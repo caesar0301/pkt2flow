@@ -425,6 +425,21 @@ static void process_trace(void)
 				fname = new_file_name(af_6tuple, hdr.ts.tv_sec);
 				pair->pdf.file_name = fname;
 				pair->pdf.start_time = hdr.ts.tv_sec;
+
+				switch (af_6tuple.protocol) {
+				case IPPROTO_TCP:
+					if (syn_detected)
+						pair->pdf.status = STS_TCP_SYN;
+					else
+						pair->pdf.status = STS_TCP_NOSYN;
+					break;
+				case IPPROTO_UDP:
+					pair->pdf.status = STS_UDP;
+					break;
+				default:
+					pair->pdf.status = STS_UNSET;
+					break;
+				}
 			}
 		}
 
