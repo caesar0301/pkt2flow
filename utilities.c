@@ -57,9 +57,19 @@ char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp)
 		break;
 	}
 
-	ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
+	switch (af_6tuple.is_vlan) {
+	case 0:
+		ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
 		       src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
 		       timestamp);
+		break;
+	case 1:
+		ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu_vlan.pcap",
+		       src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
+		       timestamp);
+		break;
+	}
+
 	if (ret < 0)
 		fname = NULL;
 

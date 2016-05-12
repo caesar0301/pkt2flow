@@ -34,7 +34,6 @@
 #include <getopt.h>
 #include <net/ethernet.h>
 #include <netinet/in.h>
-#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
@@ -222,7 +221,7 @@ static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
 #endif
 
 #ifdef darwin
-            if (tcphdr->th_flags == TH_SYN)
+        if (tcphdr->th_flags == TH_SYN)
 #else
 		if (tcphdr->syn)
 #endif
@@ -347,8 +346,21 @@ static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
 	len -= sizeof(*ethhdr);
 	bytes += sizeof(*ethhdr);
 
-	if (ntohs(ethhdr->ether_type) != ETHERTYPE_IP &&
-	    ntohs(ethhdr->ether_type) != ETHERTYPE_IPV6)
+	struct vlan_header *vlanhdr;
+	uint16_t etype = ntohs(ethhdr->ether_type);
+
+	/* VLAN header, IEEE 802.1Q */
+	if (etype == ETHERTYPE_VLAN) {
+		vlanhdr = (struct vlan_header *)bytes;
+		etype = ntohs(vlanhdr->tpid);
+		bytes += sizeof(*vlanhdr);
+		len -= sizeof(*vlanhdr);
+		af_6tuple->is_vlan = 1;
+	} else {
+		af_6tuple->is_vlan = 0;
+	}
+
+	if (etype != ETHERTYPE_IP && etype != ETHERTYPE_IPV6)
 		return -1;
 
 	return pcap_handle_ip(af_6tuple, bytes, len);

@@ -68,6 +68,12 @@ struct pkt_dump_file {
 	unsigned long start_time;
 };
 
+/* VLAN header, IEEE 802.1Q */
+struct vlan_header {
+	uint16_t tci;   /* Priority 3bits, CFI 1bit, ID 12bits */
+	uint16_t tpid;
+};
+
 union ip_address {
 	struct in_addr v4;
 	struct in6_addr v6;
@@ -78,6 +84,7 @@ struct af_6tuple {
 	int protocol;
 	union ip_address ip1, ip2;
 	uint16_t port1, port2;
+	uint8_t is_vlan;
 };
 
 struct ip_pair {
