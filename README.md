@@ -8,6 +8,8 @@ chenxm35@gmail.com
 
 2012-12
 
+**©MIT LICENSED**
+
 A simple utility to classify packets into flows. It's so simple that only one task
 is aimed to finish.
 
