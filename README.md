@@ -6,7 +6,7 @@ pkt2flow
 by chenxm, Shanghai Jiao Tong Univ.
 chenxm35@gmail.com
 
-2012-12
+2012-2019
 
 **©MIT LICENSED**
 
@@ -32,18 +32,24 @@ How to compile
 
 
 This program is structured and compiled with a tool called SCons (http://www.scons.org/).
-You can follow simple steps to make a compile:
+You can follow simple steps to make a compile (e.g. Ubuntu):
 
-1. Make sure you have libpcap (on Mac and Linux) in your system.
+1. Make sure you have library `libpcap` in your system.
+```bash
+sudo apt install -y libpcap-dev
+```
 
 2. Install "Scons" that can be downloaded from its official website given above.
+```bash
+sudo apt install -y scons
+```
 
-3. `cd` into the root folder of pkt2flow, and run `scons`
-
-    $ cd ./pkt2flow
-    
-    $ scons
-
+3. Get source code and run `scons` under the project folder: 
+```bash
+git clone https://github.com/caesar0301/pkt2flow.git
+cd pkt2flow
+scons # You got binary pkt2flow
+````
 
 How to install (optional)
 ----------
@@ -60,7 +66,7 @@ become the appropriate user.
 
 Usage
 --------
-
+```bash
 Usage: ./pkt2flow [-huvx] [-o outdir] pcapfile
 
 	Options:
@@ -69,4 +75,5 @@ Usage: ./pkt2flow [-huvx] [-o outdir] pcapfile
 		-v	also dump the in(v)alid TCP flows without the SYN option
 		-x	also dump non-UDP/non-TCP IP flows
 		-o	(o)utput directory
+```
 
