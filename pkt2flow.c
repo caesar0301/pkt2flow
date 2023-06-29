@@ -56,7 +56,10 @@ static char *readfile = NULL;
 //char *interface = NULL;
 static char *outputdir = "pkt2flow.out";
 static pcap_t *inputp = NULL;
-struct ip_pair *pairs[HASH_TBL_SIZE];
+//This error means that 
+//there are multiple definitions of the global variable pairs 
+//Need to add extern
+extern struct ip_pair *pairs[HASH_TBL_SIZE];
 
 static void usage(char *progname)
 {
