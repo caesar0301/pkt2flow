@@ -1,8 +1,6 @@
 pkt2flow
 ========
 
-[![Build Status](https://travis-ci.org/caesar0301/pkt2flow.svg?branch=master)](https://travis-ci.org/caesar0301/pkt2flow)
-
 by chenxm, Shanghai Jiao Tong Univ.
 chenxm35@gmail.com
 
@@ -76,4 +74,9 @@ Usage: ./pkt2flow [-huvx] [-o outdir] pcapfile
 		-x	also dump non-UDP/non-TCP IP flows
 		-o	(o)utput directory
 ```
+
+Contributors
+--------
+
+[![Contributors](https://contrib.rocks/image?repo=caesar0301/pkt2flow "pkt2flow contributors")](https://github.com/caesar0301/pkt2flow/graphs/contributors)
 
