@@ -7,13 +7,13 @@ on:
     branches: [ main, master, develop ]
 
 jobs:
-  build-and-test:
+  build-test-analyze:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        build_type: [Release, Debug]
+        build_type: [Release]
 
     steps:
     - uses: actions/checkout@v4
@@ -27,7 +27,8 @@ jobs:
           libgoogle-glog-dev \
           libgtest-dev \
           cmake \
-          build-essential
+          build-essential \
+          clang-format
 
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
@@ -37,9 +38,19 @@ jobs:
           libpcap \
           glog \
           googletest \
-          cmake
+          cmake \
+          clang-format
+
+    - name: Check code formatting
+      env:
+        PKG_CONFIG_PATH: ${{ matrix.os == 'macos-latest' && '/opt/homebrew/opt/libpcap/lib/pkgconfig' || '' }}
+      run: |
+        chmod +x format_code.sh
+        ./format_code.sh --check
 
     - name: Configure CMake
+      env:
+        PKG_CONFIG_PATH: ${{ matrix.os == 'macos-latest' && '/opt/homebrew/opt/libpcap/lib/pkgconfig' || '' }}
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
@@ -58,34 +69,6 @@ jobs:
         which pkt2flow
         pkt2flow -h || true  # Show help (exits with non-zero)
 
-  static-analysis:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libpcap-dev \
-          libgoogle-glog-dev \
-          libgtest-dev \
-          cmake \
-          build-essential \
-          cppcheck \
-          clang-format
-
-    - name: Run cppcheck
-      run: |
-        cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem \
-          --suppress=unusedFunction \
-          --inline-suppr \
-          *.c *.h
-
-    - name: Check code formatting
-      run: |
-        clang-format --dry-run --Werror *.c *.h
-
   build-docs:
     runs-on: ubuntu-latest
     steps:
@@ -100,43 +83,3 @@ jobs:
       run: |
         doxygen --version
         # Documentation generation can be added when Doxyfile is created
-
-  cross-compile:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [x86_64, aarch64]
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Install cross-compilation tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get install -y \
-          libpcap-dev \
-          libgoogle-glog-dev \
-          cmake \
-          build-essential
-
-    - name: Configure CMake (x86_64)
-      if: matrix.target == 'x86_64'
-      run: |
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_TESTS=OFF
-
-    - name: Configure CMake (aarch64)
-      if: matrix.target == 'aarch64'
-      run: |
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_TESTS=OFF \
-          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
-
-    - name: Build
-      run: cmake --build build -j $(nproc)

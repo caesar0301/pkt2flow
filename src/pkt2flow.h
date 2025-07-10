@@ -1,8 +1,7 @@
 
 /* pkt2flow
- * Xiaming Chen (chen_xm@sjtu.edu.cn)
  *
- * Copyright (c) 2012
+ * Copyright (c) 2012 Xiaming Chen <chen_xm@sjtu.edu.cn>
  * Copyright (c) 2014 Sven Eckelmann <sven@narfation.org>
  *
  * Permission is hereby granted, free of charge, to any person
@@ -35,69 +34,73 @@
 #ifndef PKT2FLOW_H
 #define PKT2FLOW_H
 
-#include <stdint.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define __SOURCE_VERSION__              "1.2"
-#define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
-#define __GLOBAL_NAME__                 "pkt2flow"
-#define FLOW_TIMEOUT                    1800    // seconds
-#define HASH_MULTIPLIER                 37
-#define HASH_TBL_SIZE                   48611
+#define __SOURCE_VERSION__ "1.2"
+#define __AUTHOR__ "X. Chen (chenxm35@gmail.com)"
+#define __GLOBAL_NAME__ "pkt2flow"
+#define FLOW_TIMEOUT 1800 // seconds
+#define HASH_MULTIPLIER 37
+#define HASH_TBL_SIZE 48611
 
 #define BIT(bitnr) (1ULL << (bitnr))
-#define isset_bits(x, bitmask) ({ typeof(bitmask) _bitmask = (bitmask); \
-				  (_bitmask & (x)) == _bitmask; })
+#ifndef PKT2FLOW_INLINE_ISSET_BITS
+#define PKT2FLOW_INLINE_ISSET_BITS
+static inline int isset_bits(uint64_t x, uint64_t bitmask) {
+  return (x & bitmask) == bitmask;
+}
+#endif
 
 enum dump_allow_flags {
-	DUMP_OTHER_ALLOWED = BIT(0),
-	DUMP_TCP_NOSYN_ALLOWED = BIT(1),
-	DUMP_UDP_ALLOWED = BIT(2),
+  DUMP_OTHER_ALLOWED = BIT(0),
+  DUMP_TCP_NOSYN_ALLOWED = BIT(1),
+  DUMP_UDP_ALLOWED = BIT(2),
 };
 
 enum pkt_dump_file_status {
-	STS_UNSET,
-	STS_TCP_SYN,
-	STS_TCP_NOSYN,
-	STS_UDP,
+  STS_UNSET,
+  STS_TCP_SYN,
+  STS_TCP_NOSYN,
+  STS_UDP,
 };
 
 struct pkt_dump_file {
-	char *file_name;
-	unsigned long pkts;
+  char *file_name;
+  unsigned long pkts;
 
-	enum pkt_dump_file_status status;
-	unsigned long start_time;
+  enum pkt_dump_file_status status;
+  unsigned long start_time;
 };
 
 /* VLAN header, IEEE 802.1Q */
 struct vlan_header {
-	uint16_t tci;   /* Priority 3bits, CFI 1bit, ID 12bits */
-	uint16_t tpid;
+  uint16_t tci; /* Priority 3bits, CFI 1bit, ID 12bits */
+  uint16_t tpid;
 };
 
 union ip_address {
-	struct in_addr v4;
-	struct in6_addr v6;
+  struct in_addr v4;
+  struct in6_addr v6;
 };
 
 struct af_6tuple {
-	int af_family;
-	int protocol;
-	union ip_address ip1, ip2;
-	uint16_t port1, port2;
-	uint8_t is_vlan;
+  int af_family;
+  int protocol;
+  union ip_address ip1, ip2;
+  uint16_t port1, port2;
+  uint8_t is_vlan;
 };
 
 struct ip_pair {
-	struct af_6tuple af_6tuple;
-	struct pkt_dump_file pdf;
-	struct ip_pair *next;
+  struct af_6tuple af_6tuple;
+  struct pkt_dump_file pdf;
+  struct ip_pair *next;
 };
 
 /* pkt2flow.c */
@@ -151,4 +154,3 @@ void reset_pdf(struct pkt_dump_file *f);
 #endif
 
 #endif /* PKT2FLOW_H */
-

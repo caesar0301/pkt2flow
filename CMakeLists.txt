@@ -50,9 +50,9 @@ find_package(glog REQUIRED)
 
 # Source files
 set(PKT2FLOW_SOURCES
-    pkt2flow.cpp
-    flow_db.cpp
-    utilities.c
+    src/pkt2flow.cpp
+    src/flow_db.cpp
+    src/utilities.cpp
 )
 
 # Create the main executable
@@ -66,7 +66,7 @@ target_link_libraries(pkt2flow
 
 # Include directories
 target_include_directories(pkt2flow PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${PCAP_INCLUDE_DIRS}
 )
 
@@ -108,7 +108,7 @@ if(BUILD_TESTS)
     
     # Include directories for tests
     target_include_directories(pkt2flow_tests PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${PCAP_INCLUDE_DIRS}
     )
     
@@ -120,12 +120,12 @@ if(BUILD_TESTS)
     
     # Create a library from the source files for testing
     add_library(pkt2flow_lib STATIC
-        flow_db.cpp
-        utilities.c
+        src/flow_db.cpp
+        src/utilities.cpp
     )
     
     target_include_directories(pkt2flow_lib PUBLIC 
-        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${PCAP_INCLUDE_DIRS}
     )
     
@@ -139,6 +139,11 @@ if(BUILD_TESTS)
     # Link the library to tests
     target_link_libraries(pkt2flow_tests pkt2flow_lib)
 endif()
+
+# Build example in examples/
+add_executable(example_pkt2flow examples/example_pkt2flow.c)
+target_link_libraries(example_pkt2flow pkt2flow_lib)
+target_include_directories(example_pkt2flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # CPack configuration for packaging
 include(CPack)
