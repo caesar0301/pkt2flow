@@ -344,7 +344,6 @@ static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
 
 static void process_trace(void) {
   struct pcap_pkthdr hdr;
-  int syn_detected;
   struct ip_pair *pair = NULL;
   pcap_dumper_t *dumper = NULL;
   const u_char *pkt = NULL;
@@ -352,7 +351,7 @@ static void process_trace(void) {
   struct af_6tuple af_6tuple;
 
   while ((pkt = pcap_next(inputp, &hdr)) != NULL) {
-    syn_detected = pcap_handle_ethernet(&af_6tuple, &hdr, pkt);
+    int syn_detected = pcap_handle_ethernet(&af_6tuple, &hdr, pkt);
     if (syn_detected < 0)
       continue;
 
