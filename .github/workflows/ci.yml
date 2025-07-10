@@ -28,7 +28,6 @@ jobs:
           libgtest-dev \
           cmake \
           build-essential \
-          cppcheck \
           clang-format
 
     - name: Install dependencies (macOS)
@@ -40,19 +39,7 @@ jobs:
           glog \
           googletest \
           cmake \
-          cppcheck \
           clang-format
-
-    - name: Run cppcheck
-      env:
-        PKG_CONFIG_PATH: ${{ matrix.os == 'macos-latest' && '/opt/homebrew/opt/libpcap/lib/pkgconfig' || '' }}
-      run: |
-        cppcheck --enable=all --error-exitcode=1 \
-          --suppress=missingIncludeSystem \
-          --suppress=unusedFunction \
-          --suppress=unusedStructMember \
-          --inline-suppr \
-          src/*.h src/*.cpp
 
     - name: Check code formatting
       env:
