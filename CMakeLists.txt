@@ -21,8 +21,11 @@ endif()
 
 # Compiler flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 set(CMAKE_C_FLAGS_DEBUG "-g -O0")
 set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 # Platform-specific definitions
 if(APPLE)
@@ -47,8 +50,8 @@ find_package(glog REQUIRED)
 
 # Source files
 set(PKT2FLOW_SOURCES
-    pkt2flow.c
-    flow_db.c
+    pkt2flow.cpp
+    flow_db.cpp
     utilities.c
 )
 
@@ -117,7 +120,7 @@ if(BUILD_TESTS)
     
     # Create a library from the source files for testing
     add_library(pkt2flow_lib STATIC
-        flow_db.c
+        flow_db.cpp
         utilities.c
     )
     

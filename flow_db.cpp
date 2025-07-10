@@ -73,7 +73,7 @@ static unsigned int hashf(const void *key, size_t sz, unsigned int hash)
 {
 	unsigned int h;
 	unsigned int i;
-	const unsigned char *array = key;
+	const unsigned char *array = static_cast<const unsigned char *>(key);
 
 	h = hash;
 	for (i = 0; i < sz; i++)
