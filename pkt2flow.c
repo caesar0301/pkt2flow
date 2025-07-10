@@ -49,6 +49,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <glog/logging.h>
 #include "pkt2flow.h"
 
 static uint32_t dump_allowed;
@@ -114,12 +115,13 @@ static void open_trace_file(void)
 {
 	char errbuf [PCAP_ERRBUF_SIZE];
 
+	LOG(INFO) << "Opening trace file: " << readfile;
 	inputp = pcap_open_offline(readfile, errbuf);
 	if (!inputp) {
-		fprintf(stderr, "error opening tracefile %s: %s\n", readfile,
-			errbuf);
+		LOG(FATAL) << "Error opening tracefile " << readfile << ": " << errbuf;
 		exit(1);
 	}
+	LOG(INFO) << "Successfully opened trace file";
 }
 
 static char *resemble_file_path(struct pkt_dump_file *pdf)
@@ -164,8 +166,7 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 			if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
 				check = mkdir(folder, S_IRWXU);
 				if (check != 0) {
-					fprintf(stderr, "making directory error: %s\n",
-						folder);
+					LOG(ERROR) << "Failed to create directory: " << folder;
 					exit(-1);
 				}
 			}
@@ -459,7 +460,7 @@ static void process_trace(void)
 		fname = resemble_file_path(&(pair->pdf));
 		FILE *f = fopen(fname, "ab");
 		if (!f) {
-			fprintf(stderr, "Failed to open output file '%s'\n", fname);
+			LOG(ERROR) << "Failed to open output file: " << fname;
 			goto skip_dump_write;
 		}
 
@@ -490,11 +491,30 @@ static void close_trace_files(void)
 
 int main(int argc, char *argv[])
 {
+	// Initialize Google Logging
+	google::InitGoogleLogging(argv[0]);
+	
+	// Set logging to stderr and files
+	FLAGS_alsologtostderr = true;
+	FLAGS_log_dir = "./logs";
+	
+	LOG(INFO) << "Starting " << __GLOBAL_NAME__ << " version " << __SOURCE_VERSION__;
+	
 	parseargs(argc, argv);
 	open_trace_file();
 	init_hash_table();
+	
+	LOG(INFO) << "Processing trace file: " << readfile;
+	LOG(INFO) << "Output directory: " << outputdir;
+	
 	process_trace();
 	close_trace_files();
 	free_hash_table();
+	
+	LOG(INFO) << "Processing completed successfully";
+	
+	// Cleanup Google Logging
+	google::ShutdownGoogleLogging();
+	
 	exit(0);
 }

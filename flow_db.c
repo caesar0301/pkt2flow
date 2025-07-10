@@ -37,12 +37,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <glog/logging.h>
 #include "pkt2flow.h"
 
 struct ip_pair *pairs [HASH_TBL_SIZE];
 
 void init_hash_table(void)
 {
+	VLOG(1) << "Initializing hash table with size " << HASH_TBL_SIZE;
 	memset(pairs, 0, sizeof(struct ip_pair *) * HASH_TBL_SIZE);
 }
 
@@ -50,16 +52,20 @@ void free_hash_table(void)
 {
 	size_t b;
 	struct ip_pair *curp;
+	int total_pairs = 0;
 
+	VLOG(1) << "Freeing hash table";
 	for (b = 0; b < HASH_TBL_SIZE; b++) {
 		while (pairs[b]) {
 			curp = pairs[b];
 			pairs[b] = pairs[b]->next;
 			reset_pdf(&curp->pdf);
 			free(curp);
+			total_pairs++;
 		}
 	}
 
+	LOG(INFO) << "Freed " << total_pairs << " flow pairs from hash table";
 	init_hash_table();
 }
 
@@ -186,7 +192,7 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple)
 
 	newp = (struct ip_pair *)malloc(sizeof(struct ip_pair));
 	if (!newp) {
-		fprintf(stderr, "not enough memory to allocate another IP pair\n");
+		LOG(FATAL) << "Not enough memory to allocate another IP pair";
 		exit(1);
 	}
 
@@ -195,6 +201,9 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple)
 	newp->next = pairs [hash];
 	pairs [hash] = newp;
 	reset_pdf((struct pkt_dump_file *) & (newp->pdf));
+
+	VLOG(2) << "Registered new IP pair in hash bucket " << hash 
+	        << " for protocol " << af_6tuple.protocol;
 
 	return newp;
 }

@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Release, Debug]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libpcap-dev \
+          libgoogle-glog-dev \
+          libgtest-dev \
+          cmake \
+          build-essential
+
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew update
+        brew install \
+          libpcap \
+          glog \
+          googletest \
+          cmake
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DBUILD_TESTS=ON
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} -j $(nproc 2>/dev/null || sysctl -n hw.ncpu)
+
+    - name: Run tests
+      working-directory: build
+      run: ctest --output-on-failure --verbose
+
+    - name: Test installation
+      run: |
+        sudo cmake --install build
+        which pkt2flow
+        pkt2flow -h || true  # Show help (exits with non-zero)
+
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libpcap-dev \
+          libgoogle-glog-dev \
+          libgtest-dev \
+          cmake \
+          build-essential \
+          cppcheck \
+          clang-format
+
+    - name: Run cppcheck
+      run: |
+        cppcheck --enable=all --error-exitcode=1 --suppress=missingIncludeSystem \
+          --suppress=unusedFunction \
+          --inline-suppr \
+          *.c *.h
+
+    - name: Check code formatting
+      run: |
+        clang-format --dry-run --Werror *.c *.h
+
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen graphviz
+
+    - name: Generate documentation
+      run: |
+        doxygen --version
+        # Documentation generation can be added when Doxyfile is created
+
+  cross-compile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install cross-compilation tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get install -y \
+          libpcap-dev \
+          libgoogle-glog-dev \
+          cmake \
+          build-essential
+
+    - name: Configure CMake (x86_64)
+      if: matrix.target == 'x86_64'
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTS=OFF
+
+    - name: Configure CMake (aarch64)
+      if: matrix.target == 'aarch64'
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTS=OFF \
+          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+
+    - name: Build
+      run: cmake --build build -j $(nproc)
