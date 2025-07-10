@@ -1,3 +1,62 @@
-.sconsign.dblite
+# Build directories
+build/
+build-*/
+_builds/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Compiled binaries
 pkt2flow
+pkt2flow_tests
+*.exe
+
+# Object files
 *.o
+*.obj
+
+# Libraries
+*.a
+*.so
+*.dylib
+*.dll
+
+# Logs
+logs/
+*.log
+
+# IDE files
+.vscode/
+.vs/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+Testing/
+CTestTestfile.cmake
+DartConfiguration.tcl
+
+# Package files
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Coverage files
+*.gcov
+*.gcda
+*.gcno
+
+# Static analysis
+cppcheck-result.xml

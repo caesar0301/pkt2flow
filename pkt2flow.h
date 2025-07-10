@@ -32,9 +32,16 @@
  * SOFTWARE.
  */
 
+#ifndef PKT2FLOW_H
+#define PKT2FLOW_H
+
 #include <stdint.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define __SOURCE_VERSION__              "1.2"
 #define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
@@ -138,4 +145,10 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple);
  * and file name bytes all set to be '\0'
  */
 void reset_pdf(struct pkt_dump_file *f);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* PKT2FLOW_H */
 
