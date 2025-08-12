@@ -39,6 +39,11 @@
 #include <pcap/pcap.h>
 #include <stdint.h>
 
+/* Define missing protocol constants if not available */
+#ifndef IPPROTO_DCCP
+#define IPPROTO_DCCP 33
+#endif
+
 #define __SOURCE_VERSION__ "1.4"
 #define __AUTHOR__ "Xiaming Chen (chenxm35@gmail.com)"
 #define __GLOBAL_NAME__ "pkt2flow"
@@ -124,6 +129,12 @@ int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
  * Handle raw IP packet processing
  */
 int pcap_handle_raw_ip(struct af_6tuple *af_6tuple,
+  const struct pcap_pkthdr *hdr, const u_char *pkt);
+
+/*
+ * Handle Linux cooked capture (SLL) packet processing
+ */
+int pcap_handle_linux_sll(struct af_6tuple *af_6tuple,
   const struct pcap_pkthdr *hdr, const u_char *pkt);
 
 /*

@@ -218,7 +218,7 @@ for d in "${EXPECTED_DIRS[@]}"; do
       err "Unexpected file extension (expected .pcap): $f"
       exit 1
     fi
-    SIZE=$(stat -c%s "$f")
+    SIZE=$(stat -f%z "$f")
     if [[ "$SIZE" -le 24 ]]; then
       err "Flow file too small to contain packets (size=$SIZE): $f"
       exit 1

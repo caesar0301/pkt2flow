@@ -170,10 +170,32 @@ char *resemble_file_path(struct pkt_dump_file *pdf) {
   return outputpath;
 }
 
+/* SCTP common header structure */
+struct sctphdr {
+  uint16_t source;
+  uint16_t dest;
+  uint32_t vtag;
+  uint32_t checksum;
+};
+
+/* DCCP common header structure */
+struct dccphdr {
+  uint16_t source;
+  uint16_t dest;
+  uint8_t type;
+  uint8_t ccval;
+  uint16_t checksum;
+  uint8_t reserved1;
+  uint8_t data_offset;
+  uint8_t options[0];
+};
+
 static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
                               size_t len, uint8_t proto) {
   struct tcphdr *tcphdr;
   struct udphdr *udphdr;
+  struct sctphdr *sctphdr;
+  struct dccphdr *dccphdr;
 
   switch (proto) {
   case IPPROTO_UDP:
@@ -212,6 +234,24 @@ static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
       return 1;
     else
       return 0;
+  case IPPROTO_SCTP:
+    if (len < sizeof(*sctphdr))
+      return -1;
+
+    sctphdr = (struct sctphdr *)bytes;
+    af_6tuple->protocol = IPPROTO_SCTP;
+    af_6tuple->port1 = ntohs(sctphdr->source);
+    af_6tuple->port2 = ntohs(sctphdr->dest);
+    return 0;
+  case IPPROTO_DCCP:
+    if (len < sizeof(*dccphdr))
+      return -1;
+
+    dccphdr = (struct dccphdr *)bytes;
+    af_6tuple->protocol = IPPROTO_DCCP;
+    af_6tuple->port1 = ntohs(dccphdr->source);
+    af_6tuple->port2 = ntohs(dccphdr->dest);
+    return 0;
   default:
     af_6tuple->protocol = 0;
     af_6tuple->port1 = 0;
@@ -354,6 +394,37 @@ int pcap_handle_raw_ip(struct af_6tuple *af_6tuple, const struct pcap_pkthdr *h,
   return pcap_handle_ip(af_6tuple, bytes, len);
 }
 
+/* Linux cooked capture (SLL) header structure */
+struct sll_header {
+  uint16_t sll_pkttype;  /* packet type */
+  uint16_t sll_hatype;   /* link-layer address type */
+  uint16_t sll_halen;    /* link-layer address length */
+  uint8_t sll_addr[8];   /* link-layer address */
+  uint16_t sll_protocol; /* protocol */
+};
+
+int pcap_handle_linux_sll(struct af_6tuple *af_6tuple,
+                          const struct pcap_pkthdr *h, const u_char *bytes) {
+  size_t len = h->caplen;
+  struct sll_header *sllhdr;
+
+  /* SLL header */
+  if (len < sizeof(*sllhdr))
+    return -1;
+
+  sllhdr = (struct sll_header *)bytes;
+  len -= sizeof(*sllhdr);
+  bytes += sizeof(*sllhdr);
+
+  /* Check if it's an IP packet */
+  uint16_t protocol = ntohs(sllhdr->sll_protocol);
+  if (protocol != ETHERTYPE_IP && protocol != ETHERTYPE_IPV6)
+    return -1;
+
+  af_6tuple->is_vlan = 0;
+  return pcap_handle_ip(af_6tuple, bytes, len);
+}
+
 static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
                            const u_char *pkt) {
   (void)user; // Suppress unused parameter warning
@@ -371,12 +442,17 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
   case DLT_PPP:         /* PPP */
   case DLT_FDDI:        /* FDDI */
   case DLT_ATM_RFC1483: /* ATM RFC1483 */
-  case DLT_RAW:         /* Raw IP */
-    if (link_type == DLT_RAW) {
-      syn_detected = pcap_handle_raw_ip(&af_6tuple, hdr, pkt);
-    } else {
-      syn_detected = pcap_handle_ethernet(&af_6tuple, hdr, pkt);
-    }
+    syn_detected = pcap_handle_ethernet(&af_6tuple, hdr, pkt);
+    break;
+  case DLT_RAW: /* Raw IP */
+    syn_detected = pcap_handle_raw_ip(&af_6tuple, hdr, pkt);
+    break;
+  case DLT_LINUX_SLL: /* Linux cooked capture */
+    syn_detected = pcap_handle_linux_sll(&af_6tuple, hdr, pkt);
+    break;
+  case DLT_IPV4: /* Raw IPv4 */
+  case DLT_IPV6: /* Raw IPv6 */
+    syn_detected = pcap_handle_raw_ip(&af_6tuple, hdr, pkt);
     break;
   default:
     fprintf(stderr, "Unsupported link type: %d\n", link_type);
@@ -393,6 +469,18 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
   case IPPROTO_UDP:
     if (!isset_bits(dump_allowed, DUMP_UDP_ALLOWED))
       // Omit the UDP packets
+      return;
+    break;
+  case IPPROTO_SCTP:
+  case IPPROTO_DCCP:
+    if (!isset_bits(dump_allowed, DUMP_OTHER_ALLOWED))
+      // Omit the SCTP/DCCP packets unless other protocols are allowed
+      return;
+    break;
+  case IPPROTO_ICMP:
+  case IPPROTO_ICMPV6:
+    if (!isset_bits(dump_allowed, DUMP_OTHER_ALLOWED))
+      // Omit the ICMP packets unless other protocols are allowed
       return;
     break;
   default:
@@ -421,6 +509,10 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
     case IPPROTO_UDP:
       pair->pdf.status = STS_UDP;
       break;
+    case IPPROTO_SCTP:
+    case IPPROTO_DCCP:
+    case IPPROTO_ICMP:
+    case IPPROTO_ICMPV6:
     default:
       pair->pdf.status = STS_UNSET;
       break;
@@ -452,6 +544,10 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
       case IPPROTO_UDP:
         pair->pdf.status = STS_UDP;
         break;
+      case IPPROTO_SCTP:
+      case IPPROTO_DCCP:
+      case IPPROTO_ICMP:
+      case IPPROTO_ICMPV6:
       default:
         pair->pdf.status = STS_UNSET;
         break;
