@@ -1,7 +1,8 @@
 /* pkt2flow
  *
- * Copyright (c) 2012 Xiaming Chen <chen_xm@sjtu.edu.cn>
- * Copyright (c) 2014 Sven Eckelmann <sven@narfation.org>
+ * Copyright (c) 2012  Xiaming Chen <chen_xm@sjtu.edu.cn>
+ * Copyright (C) 2014  Sven Eckelmann <sven@narfation.org>
+ * Copyright (C) 2025  Xiaming Chen <chenxm35@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -31,8 +32,7 @@
  */
 
 #include "pkt2flow.h"
-#include <getopt.h>
-#include <glog/logging.h>
+
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -54,80 +54,27 @@
 static uint32_t dump_allowed;
 static char *readfile = NULL;
 // char *interface = NULL;
-static const char *outputdir = "pkt2flow.out";
-static pcap_t *inputp = NULL;
+static char *outputdir = "pkt2flow.out";
+pcap_t *inputp = NULL;
 
-static void usage(const char *progname) {
-  fprintf(stderr, "Name: %s\n", __GLOBAL_NAME__);
-  fprintf(stderr, "Version: %s\n", __SOURCE_VERSION__);
-  fprintf(stderr, "Author: %s\n", __AUTHOR__);
-  fprintf(stderr,
-          "Program to seperate the packets into flows (UDP or TCP).\n\n");
-  fprintf(stderr, "Usage: %s [-huvx] [-o outdir] pcapfile\n\n", progname);
-  fprintf(stderr, "Options:\n");
-  fprintf(stderr, "	-h	print this help and exit\n");
-  fprintf(stderr, "	-u	also dump (U)DP flows\n");
-  fprintf(
-      stderr,
-      "	-v	also dump the in(v)alid TCP flows without the SYN option\n");
-  fprintf(stderr, "	-x	also dump non-UDP/non-TCP IP flows\n");
-  fprintf(stderr, "	-o	(o)utput directory\n");
-}
-
-static void parseargs(int argc, char *argv[]) {
-  int opt;
-  const char *optstr = "uvxo:h";
-  while ((opt = getopt(argc, argv, optstr)) != -1) {
-    switch (opt) {
-    case 'h':
-      usage(argv[0]);
-      exit(-1);
-    case 'o':
-      outputdir = optarg;
-      break;
-    case 'u':
-      dump_allowed |= DUMP_UDP_ALLOWED;
-      break;
-    case 'v':
-      dump_allowed |= DUMP_TCP_NOSYN_ALLOWED;
-      break;
-    case 'x':
-      dump_allowed |= DUMP_OTHER_ALLOWED;
-      break;
-    default:
-      usage(argv[0]);
-      exit(-1);
-    }
-  }
-
-  if (optind < argc)
-    readfile = argv[optind];
-  if (readfile == NULL) {
-    fprintf(stderr, "pcap file not given\n");
-    usage(argv[0]);
-    exit(1);
-  }
-}
-
-static void open_trace_file(void) {
+void open_trace_file(void) {
   char errbuf[PCAP_ERRBUF_SIZE];
 
-  LOG(INFO) << "Opening trace file: " << readfile;
   inputp = pcap_open_offline(readfile, errbuf);
   if (!inputp) {
-    LOG(FATAL) << "Error opening tracefile " << readfile << ": " << errbuf;
+    fprintf(stderr, "error opening tracefile %s: %s\n", readfile, errbuf);
     exit(1);
   }
-  LOG(INFO) << "Successfully opened trace file";
 }
 
-static char *resemble_file_path(struct pkt_dump_file *pdf) {
+char *resemble_file_path(struct pkt_dump_file *pdf) {
   char *cwd = getcwd(NULL, 0); // backup the current working directory
-  char *folder = NULL;
+  int check;
   struct stat statBuff;
   int ret;
   const char *type_folder;
   char *outputpath;
+  char *dir_path = NULL;
 
   switch (pdf->status) {
   case STS_TCP_SYN:
@@ -144,37 +91,72 @@ static char *resemble_file_path(struct pkt_dump_file *pdf) {
     break;
   }
 
-  ret = asprintf(&outputpath, "%s/%s", outputdir, type_folder);
-  if (ret < 0)
+  ret = asprintf(&dir_path, "%s/%s", outputdir, type_folder);
+  if (ret < 0) {
+    free(cwd);
     return NULL;
+  }
 
   // Check the path folder and create the folders if they are not there
-  ret = stat(outputpath, &statBuff);
+  ret = stat(dir_path, &statBuff);
   if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
-    /* handle absolute path */
-    if (outputpath[0] == '/')
-      chdir("/");
+    // Create directory using mkdir -p equivalent
+    char *path_copy = strdup(dir_path);
+    if (!path_copy) {
+      free(cwd);
+      free(dir_path);
+      return NULL;
+    }
 
-    folder = strtok(outputpath, "/");
-    while (folder != NULL) {
-      ret = stat(folder, &statBuff);
+    char *token = strtok(path_copy, "/");
+    char *current_path = NULL;
+
+    while (token != NULL) {
+      if (current_path == NULL) {
+        if (dir_path[0] == '/') {
+          // Absolute path
+          ret = asprintf(&current_path, "/%s", token);
+        } else {
+          // Relative path
+          ret = asprintf(&current_path, "%s", token);
+        }
+      } else {
+        char *new_path;
+        ret = asprintf(&new_path, "%s/%s", current_path, token);
+        free(current_path);
+        current_path = new_path;
+      }
+
+      if (ret < 0) {
+        free(path_copy);
+        free(current_path);
+        free(cwd);
+        free(dir_path);
+        return NULL;
+      }
+
+      ret = stat(current_path, &statBuff);
       if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
-        int check = mkdir(folder, S_IRWXU);
+        check = mkdir(current_path, S_IRWXU);
         if (check != 0) {
-          LOG(ERROR) << "Failed to create directory: " << folder;
-          exit(-1);
+          fprintf(stderr, "making directory error: %s\n", current_path);
+          free(path_copy);
+          free(current_path);
+          free(cwd);
+          free(dir_path);
+          return NULL;
         }
       }
-      chdir(folder);
-      folder = strtok(NULL, "/");
+      token = strtok(NULL, "/");
     }
+    free(path_copy);
+    free(current_path);
   }
-  chdir(cwd);
-  free(cwd);
-  free(outputpath);
 
-  ret =
-      asprintf(&outputpath, "%s/%s/%s", outputdir, type_folder, pdf->file_name);
+  free(cwd);
+
+  ret = asprintf(&outputpath, "%s/%s", dir_path, pdf->file_name);
+  free(dir_path);
   if (ret < 0)
     return NULL;
 
@@ -183,12 +165,15 @@ static char *resemble_file_path(struct pkt_dump_file *pdf) {
 
 static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
                               size_t len, uint8_t proto) {
+  struct tcphdr *tcphdr;
+  struct udphdr *udphdr;
+
   switch (proto) {
-  case IPPROTO_UDP: {
-    if (len < sizeof(struct udphdr))
+  case IPPROTO_UDP:
+    if (len < sizeof(*udphdr))
       return -1;
-    struct udphdr *udphdr =
-        reinterpret_cast<struct udphdr *>(const_cast<u_char *>(bytes));
+
+    udphdr = (struct udphdr *)bytes;
     af_6tuple->protocol = IPPROTO_UDP;
 #ifdef darwin
     af_6tuple->port1 = ntohs(udphdr->uh_sport);
@@ -197,13 +182,12 @@ static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
     af_6tuple->port1 = ntohs(udphdr->source);
     af_6tuple->port2 = ntohs(udphdr->dest);
 #endif
-    break;
-  }
-  case IPPROTO_TCP: {
-    if (len < sizeof(struct tcphdr))
+    return 0;
+  case IPPROTO_TCP:
+    if (len < sizeof(*tcphdr))
       return -1;
-    struct tcphdr *tcphdr =
-        reinterpret_cast<struct tcphdr *>(const_cast<u_char *>(bytes));
+
+    tcphdr = (struct tcphdr *)bytes;
     af_6tuple->protocol = IPPROTO_TCP;
 #ifdef darwin
     af_6tuple->port1 = ntohs(tcphdr->th_sport);
@@ -212,22 +196,31 @@ static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
     af_6tuple->port1 = ntohs(tcphdr->source);
     af_6tuple->port2 = ntohs(tcphdr->dest);
 #endif
-    break;
-  }
+
+#ifdef darwin
+    if (tcphdr->th_flags == TH_SYN)
+#else
+    if (tcphdr->syn)
+#endif
+      return 1;
+    else
+      return 0;
   default:
-    af_6tuple->protocol = proto;
+    af_6tuple->protocol = 0;
     af_6tuple->port1 = 0;
     af_6tuple->port2 = 0;
-    break;
+    return 0;
   }
-  return 0;
 }
 
 static int pcap_handle_ipv4(struct af_6tuple *af_6tuple, const u_char *bytes,
                             size_t len) {
-  if (len < sizeof(struct ip))
+  struct ip *iphdr;
+
+  if (len < sizeof(*iphdr))
     return -1;
-  struct ip *iphdr = reinterpret_cast<struct ip *>(const_cast<u_char *>(bytes));
+
+  iphdr = (struct ip *)bytes;
   if (len > ntohs(iphdr->ip_len))
     len = ntohs(iphdr->ip_len);
 
@@ -246,11 +239,8 @@ static int pcap_handle_ipv4(struct af_6tuple *af_6tuple, const u_char *bytes,
 
 static int pcap_handle_ipv6(struct af_6tuple *af_6tuple, const u_char *bytes,
                             size_t len) {
-  if (len < sizeof(struct ip6_hdr))
-    return -1;
-  struct ip6_hdr *iphdr =
-      reinterpret_cast<struct ip6_hdr *>(const_cast<u_char *>(bytes));
-  const struct ip6_opt *opthdr = nullptr;
+  struct ip6_hdr *iphdr;
+  struct ip6_opt *opthdr;
   int curheader = 255;
   uint8_t nexthdr;
 
@@ -259,6 +249,7 @@ static int pcap_handle_ipv6(struct af_6tuple *af_6tuple, const u_char *bytes,
     case 255:
       if (len < sizeof(*iphdr))
         return -1;
+      iphdr = (struct ip6_hdr *)bytes;
       bytes += sizeof(*iphdr);
       len -= sizeof(*iphdr);
       nexthdr = iphdr->ip6_ctlun.ip6_un1.ip6_un1_nxt;
@@ -274,7 +265,7 @@ static int pcap_handle_ipv6(struct af_6tuple *af_6tuple, const u_char *bytes,
         return -1;
       nexthdr = bytes[0];
 
-      opthdr = reinterpret_cast<const struct ip6_opt *>(bytes);
+      opthdr = (struct ip6_opt *)bytes;
       if (len < ((1u + opthdr->ip6o_len) * 8u))
         return -1;
       bytes += (1u + opthdr->ip6o_len) * 8u;
@@ -313,21 +304,25 @@ static int pcap_handle_ip(struct af_6tuple *af_6tuple, const u_char *bytes,
   return -1;
 }
 
-static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
-                                const struct pcap_pkthdr *h,
-                                const u_char *bytes) {
-  if (h->caplen < sizeof(struct ether_header))
-    return -1;
-  struct ether_header *ethhdr =
-      reinterpret_cast<struct ether_header *>(const_cast<u_char *>(bytes));
+int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
+                         const struct pcap_pkthdr *h, const u_char *bytes) {
   size_t len = h->caplen;
-  struct vlan_header *vlanhdr = nullptr;
+  struct ether_header *ethhdr;
+
+  /* Ethernet header */
+  if (len < sizeof(*ethhdr))
+    return -1;
+
+  ethhdr = (struct ether_header *)bytes;
+  len -= sizeof(*ethhdr);
+  bytes += sizeof(*ethhdr);
+
+  struct vlan_header *vlanhdr;
   uint16_t etype = ntohs(ethhdr->ether_type);
 
   /* VLAN header, IEEE 802.1Q */
   if (etype == ETHERTYPE_VLAN) {
-    vlanhdr =
-        reinterpret_cast<struct vlan_header *>(const_cast<u_char *>(bytes));
+    vlanhdr = (struct vlan_header *)bytes;
     etype = ntohs(vlanhdr->tpid);
     bytes += sizeof(*vlanhdr);
     len -= sizeof(*vlanhdr);
@@ -342,44 +337,74 @@ static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
   return pcap_handle_ip(af_6tuple, bytes, len);
 }
 
-static void process_trace(void) {
-  struct pcap_pkthdr hdr;
+static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
+                           const u_char *pkt) {
+  (void)user; // Suppress unused parameter warning
+  int syn_detected;
   struct ip_pair *pair = NULL;
-  pcap_dumper_t *dumper = NULL;
-  const u_char *pkt = NULL;
   char *fname = NULL;
   struct af_6tuple af_6tuple;
 
-  while ((pkt = pcap_next(inputp, &hdr)) != NULL) {
-    int syn_detected = pcap_handle_ethernet(&af_6tuple, &hdr, pkt);
-    if (syn_detected < 0)
-      continue;
+  syn_detected = pcap_handle_ethernet(&af_6tuple, hdr, pkt);
+  if (syn_detected < 0)
+    return;
 
+  switch (af_6tuple.protocol) {
+  case IPPROTO_TCP:
+    /* always accept tcp */
+    break;
+  case IPPROTO_UDP:
+    if (!isset_bits(dump_allowed, DUMP_UDP_ALLOWED))
+      // Omit the UDP packets
+      return;
+    break;
+  default:
+    if (!isset_bits(dump_allowed, DUMP_OTHER_ALLOWED))
+      // Omit the other packets
+      return;
+    break;
+  }
+
+  // Search for the ip_pair of specific six-tuple
+  pair = find_ip_pair(af_6tuple);
+  if (pair == NULL) {
+    if ((af_6tuple.protocol == IPPROTO_TCP) && !syn_detected &&
+        !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
+      // No SYN detected and don't create a new flow
+      return;
+    }
+    pair = register_ip_pair(af_6tuple);
     switch (af_6tuple.protocol) {
     case IPPROTO_TCP:
-      /* always accept tcp */
+      if (syn_detected)
+        pair->pdf.status = STS_TCP_SYN;
+      else
+        pair->pdf.status = STS_TCP_NOSYN;
       break;
     case IPPROTO_UDP:
-      if (!isset_bits(dump_allowed, DUMP_UDP_ALLOWED))
-        // Omit the UDP packets
-        continue;
+      pair->pdf.status = STS_UDP;
       break;
     default:
-      if (!isset_bits(dump_allowed, DUMP_OTHER_ALLOWED))
-        // Omit the other packets
-        continue;
+      pair->pdf.status = STS_UNSET;
       break;
     }
+  }
 
-    // Search for the ip_pair of specific six-tuple
-    pair = find_ip_pair(af_6tuple);
-    if (pair == NULL) {
-      if ((af_6tuple.protocol == IPPROTO_TCP) && !syn_detected &&
-          !isset_bits(dump_allowed, DUMP_TCP_NOSYN_ALLOWED)) {
-        // No SYN detected and don't create a new flow
-        continue;
-      }
-      pair = register_ip_pair(af_6tuple);
+  // Fill the ip_pair with information of the current flow
+  if (pair->pdf.pkts == 0) {
+    // A new flow item reated with empty dump file object
+    fname = new_file_name(af_6tuple, hdr->ts.tv_sec);
+    pair->pdf.file_name = fname;
+    pair->pdf.start_time = hdr->ts.tv_sec;
+  } else {
+    if (hdr->ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT) {
+      // Rest the pair to start a new flow with the same 6-tuple, but with
+      // the different name and timestamp
+      reset_pdf(&(pair->pdf));
+      fname = new_file_name(af_6tuple, hdr->ts.tv_sec);
+      pair->pdf.file_name = fname;
+      pair->pdf.start_time = hdr->ts.tv_sec;
+
       switch (af_6tuple.protocol) {
       case IPPROTO_TCP:
         if (syn_detected)
@@ -395,78 +420,46 @@ static void process_trace(void) {
         break;
       }
     }
-
-    // Generate the file name for the flow
-    if (pair->pdf.file_name == NULL) {
-      pair->pdf.file_name = new_file_name(af_6tuple, hdr.ts.tv_sec);
-      pair->pdf.start_time = hdr.ts.tv_sec;
-    }
-
-    // Open the file for writing
-    fname = resemble_file_path(&pair->pdf);
-    if (fname == NULL) {
-      LOG(ERROR) << "Failed to generate file path for flow";
-      continue;
-    }
-
-    FILE *f = fopen(fname, "ab");
-    if (f == NULL) {
-      LOG(ERROR) << "Failed to open file for writing: " << fname;
-      free(fname);
-      continue;
-    }
-
-    // Write the packet to the file
-    if (pair->pdf.pkts == 0) {
-      // First packet, write pcap file header
-      dumper = pcap_dump_open(inputp, fname);
-      if (dumper == NULL) {
-        LOG(ERROR) << "Failed to create pcap dumper for: " << fname;
-        fclose(f);
-        free(fname);
-        continue;
-      }
-    } else {
-      // Write the packet only
-      dumper = reinterpret_cast<pcap_dumper_t *>(f);
-    }
-    // Dump the packet now
-    pcap_dump(reinterpret_cast<u_char *>(dumper), &hdr, pkt);
-    pcap_dump_close(dumper);
-
-    pair->pdf.pkts++;
-    free(fname);
   }
+
+  // Dump the packet to file
+  fname = resemble_file_path(&(pair->pdf));
+  if (!fname) {
+    fprintf(stderr, "Failed to create file path\n");
+    return;
+  }
+
+  if (pair->pdf.pkts == 0) {
+    // First packet in this flow - create a new file with pcap header
+    FILE *f = fopen(fname, "wb");
+    if (!f) {
+      fprintf(stderr, "Failed to open output file '%s'\n", fname);
+      free(fname);
+      return;
+    }
+    pair->pdf.dumper = pcap_dump_fopen(inputp, f);
+    if (!pair->pdf.dumper) {
+      fprintf(stderr, "Failed to create pcap dumper\n");
+      fclose(f);
+      free(fname);
+      return;
+    }
+  }
+
+  // Dump the packet using the existing dumper
+  pcap_dump((u_char *)pair->pdf.dumper, hdr, (unsigned char *)pkt);
+  pcap_dump_flush(pair->pdf.dumper);
+
+  free(fname);
+  pair->pdf.pkts++;
 }
 
-static void close_trace_files(void) { pcap_close(inputp); }
+void set_dump_allowed(uint32_t flags) { dump_allowed = flags; }
 
-int main(int argc, char *argv[]) {
-  // Initialize Google Logging
-  google::InitGoogleLogging(argv[0]);
+void set_readfile(const char *filename) { readfile = (char *)filename; }
 
-  // Set logging to stderr and files
-  FLAGS_alsologtostderr = true;
-  FLAGS_log_dir = "./logs";
+void set_outputdir(const char *dir) { outputdir = (char *)dir; }
 
-  LOG(INFO) << "Starting " << __GLOBAL_NAME__ << " version "
-            << __SOURCE_VERSION__;
+void process_trace(void) { pcap_loop(inputp, -1, packet_handler, NULL); }
 
-  parseargs(argc, argv);
-  open_trace_file();
-  init_hash_table();
-
-  LOG(INFO) << "Processing trace file: " << readfile;
-  LOG(INFO) << "Output directory: " << outputdir;
-
-  process_trace();
-  close_trace_files();
-  free_hash_table();
-
-  LOG(INFO) << "Processing completed successfully";
-
-  // Cleanup Google Logging
-  google::ShutdownGoogleLogging();
-
-  exit(0);
-}
+void close_trace_files(void) { pcap_close(inputp); }

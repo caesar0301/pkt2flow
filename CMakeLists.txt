@@ -45,37 +45,34 @@ if(NOT PCAP_FOUND)
     set(PCAP_INCLUDE_DIRS "")
 endif()
 
-# Find glog
-find_package(glog REQUIRED)
-
-# Source files
+# Source files for the original executable
 set(PKT2FLOW_SOURCES
-    src/pkt2flow.cpp
-    src/flow_db.cpp
-    src/utilities.cpp
+    src/pkt2flow.c
+    src/flow_db.c
+    src/utilities.c
+    src/main.c
 )
 
-# Create the main executable
+# Create the original executable
 add_executable(pkt2flow ${PKT2FLOW_SOURCES})
 
-# Link libraries
-target_link_libraries(pkt2flow 
+# Link libraries for both executables
+target_link_libraries(pkt2flow
     ${PCAP_LIBRARIES}
-    glog::glog
 )
 
-# Include directories
-target_include_directories(pkt2flow PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+# Include directories for both executables
+target_include_directories(pkt2flow PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${PCAP_INCLUDE_DIRS}
 )
 
-# Set compile definitions
+# Set compile definitions for both executables
 target_compile_definitions(pkt2flow PRIVATE _GNU_SOURCE)
 
 # Installation
 include(GNUInstallDirs)
-install(TARGETS pkt2flow 
+install(TARGETS pkt2flow
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
@@ -87,17 +84,23 @@ option(BUILD_TESTS "Build unit tests" ON)
 if(BUILD_TESTS)
     # Find GoogleTest
     find_package(GTest REQUIRED)
-    
+    find_package(Glog REQUIRED)
+
     # Test source files
     set(TEST_SOURCES
         tests/test_flow_db.cpp
         tests/test_utilities.cpp
+        tests/test_pkt2flow_base.cpp
+        tests/test_pkt2flow_integration.cpp
+        tests/test_pkt2flow_tcp_integration.cpp
+        tests/test_pkt2flow_udp_integration.cpp
+        tests/test_pkt2flow_udplite_integration.cpp
         tests/test_main.cpp
     )
-    
+
     # Create test executable
     add_executable(pkt2flow_tests ${TEST_SOURCES})
-    
+
     # Link test libraries
     target_link_libraries(pkt2flow_tests
         ${PCAP_LIBRARIES}
@@ -105,45 +108,65 @@ if(BUILD_TESTS)
         GTest::gtest
         GTest::gtest_main
     )
-    
+
     # Include directories for tests
-    target_include_directories(pkt2flow_tests PRIVATE 
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+    target_include_directories(pkt2flow_tests PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${PCAP_INCLUDE_DIRS}
     )
-    
+
     # Set compile definitions for tests
     target_compile_definitions(pkt2flow_tests PRIVATE _GNU_SOURCE)
-    
+
     # Add test
     add_test(NAME pkt2flow_unit_tests COMMAND pkt2flow_tests)
-    
+
     # Create a library from the source files for testing
     add_library(pkt2flow_lib STATIC
-        src/flow_db.cpp
-        src/utilities.cpp
+        src/flow_db.c
+        src/utilities.c
     )
-    
-    target_include_directories(pkt2flow_lib PUBLIC 
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+
+    target_include_directories(pkt2flow_lib PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${PCAP_INCLUDE_DIRS}
     )
-    
-    target_link_libraries(pkt2flow_lib 
+
+    target_link_libraries(pkt2flow_lib
         ${PCAP_LIBRARIES}
         glog::glog
     )
-    
+
     target_compile_definitions(pkt2flow_lib PRIVATE _GNU_SOURCE)
-    
-    # Link the library to tests
-    target_link_libraries(pkt2flow_tests pkt2flow_lib)
+
+    # Create a library that includes the main pkt2flow.c for testing (excluding main)
+    add_library(pkt2flow_test_lib STATIC
+        src/pkt2flow.c
+    )
+
+    # Exclude main function from the test library
+    target_compile_definitions(pkt2flow_test_lib PRIVATE _GNU_SOURCE TESTING_MODE)
+
+    target_include_directories(pkt2flow_test_lib PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PCAP_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(pkt2flow_test_lib
+        ${PCAP_LIBRARIES}
+        glog::glog
+    )
+
+    target_compile_definitions(pkt2flow_test_lib PRIVATE _GNU_SOURCE)
+
+    # Link both libraries to tests
+    target_link_libraries(pkt2flow_tests pkt2flow_lib pkt2flow_test_lib)
 endif()
 
 # Build example in examples/
 add_executable(example_pkt2flow examples/example_pkt2flow.c)
 target_link_libraries(example_pkt2flow pkt2flow_lib)
-target_include_directories(example_pkt2flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(example_pkt2flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # CPack configuration for packaging
 include(CPack)

@@ -1,8 +1,8 @@
 /* pkt2flow
- * Xiaming Chen (chen_xm@sjtu.edu.cn)
  *
- * Copyright (c) 2012
- * Copyright (c) 2014 Sven Eckelmann <sven@narfation.org>
+ * Copyright (c) 2012  Xiaming Chen <chen_xm@sjtu.edu.cn>
+ * Copyright (C) 2014  Sven Eckelmann <sven@narfation.org>
+ * Copyright (C) 2025  Xiaming Chen <chenxm35@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -32,7 +32,6 @@
  */
 
 #include "pkt2flow.h"
-#include <glog/logging.h>
 #include <netinet/in.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -43,34 +42,29 @@
 struct ip_pair *pairs[HASH_TBL_SIZE];
 
 void init_hash_table(void) {
-  VLOG(1) << "Initializing hash table with size " << HASH_TBL_SIZE;
   memset(pairs, 0, sizeof(struct ip_pair *) * HASH_TBL_SIZE);
 }
 
 void free_hash_table(void) {
   size_t b;
   struct ip_pair *curp;
-  int total_pairs = 0;
 
-  VLOG(1) << "Freeing hash table";
   for (b = 0; b < HASH_TBL_SIZE; b++) {
     while (pairs[b]) {
       curp = pairs[b];
       pairs[b] = pairs[b]->next;
       reset_pdf(&curp->pdf);
       free(curp);
-      total_pairs++;
     }
   }
 
-  LOG(INFO) << "Freed " << total_pairs << " flow pairs from hash table";
   init_hash_table();
 }
 
 static unsigned int hashf(const void *key, size_t sz, unsigned int hash) {
   unsigned int h;
   unsigned int i;
-  const unsigned char *array = static_cast<const unsigned char *>(key);
+  const unsigned char *array = key;
 
   h = hash;
   for (i = 0; i < sz; i++)
@@ -84,6 +78,10 @@ void reset_pdf(struct pkt_dump_file *f) {
   f->status = STS_UNSET;
   free(f->file_name);
   f->file_name = NULL;
+  if (f->dumper) {
+    pcap_dump_close(f->dumper);
+    f->dumper = NULL;
+  }
 }
 
 static unsigned int hash_5tuple(struct af_6tuple af_6tuple) {
@@ -182,20 +180,18 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple) {
 
   hash = hash_5tuple(af_6tuple);
 
-  newp = new struct ip_pair;
+  newp = (struct ip_pair *)malloc(sizeof(struct ip_pair));
   if (!newp) {
-    LOG(FATAL) << "Not enough memory to allocate another IP pair";
+    fprintf(stderr, "not enough memory to allocate another IP pair\n");
     exit(1);
   }
 
   newp->af_6tuple = af_6tuple;
   newp->pdf.file_name = NULL;
+  newp->pdf.dumper = NULL;
   newp->next = pairs[hash];
   pairs[hash] = newp;
-  reset_pdf(&(newp->pdf));
-
-  VLOG(2) << "Registered new IP pair in hash bucket " << hash
-          << " for protocol " << af_6tuple.protocol;
+  reset_pdf((struct pkt_dump_file *)&(newp->pdf));
 
   return newp;
 }

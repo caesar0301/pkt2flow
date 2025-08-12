@@ -1,7 +1,8 @@
 
 /* pkt2flow
+ * Xiaming Chen (chen_xm@sjtu.edu.cn)
  *
- * Copyright (c) 2012 Xiaming Chen <chen_xm@sjtu.edu.cn>
+ * Copyright (c) 2012
  * Copyright (c) 2014 Sven Eckelmann <sven@narfation.org>
  *
  * Permission is hereby granted, free of charge, to any person
@@ -30,32 +31,28 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
 #ifndef PKT2FLOW_H
 #define PKT2FLOW_H
 
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <pcap/pcap.h>
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#define __SOURCE_VERSION__ "1.2"
-#define __AUTHOR__ "X. Chen (chenxm35@gmail.com)"
+#define __SOURCE_VERSION__ "1.4"
+#define __AUTHOR__ "Xiaming Chen (chenxm35@gmail.com)"
 #define __GLOBAL_NAME__ "pkt2flow"
 #define FLOW_TIMEOUT 1800 // seconds
 #define HASH_MULTIPLIER 37
 #define HASH_TBL_SIZE 48611
 
 #define BIT(bitnr) (1ULL << (bitnr))
-#ifndef PKT2FLOW_INLINE_ISSET_BITS
-#define PKT2FLOW_INLINE_ISSET_BITS
-static inline int isset_bits(uint64_t x, uint64_t bitmask) {
-  return (x & bitmask) == bitmask;
-}
-#endif
+#define isset_bits(x, bitmask)                                                 \
+  ({                                                                           \
+    uint32_t _bitmask = (uint32_t)(bitmask);                                   \
+    uint32_t _x = (uint32_t)(x);                                               \
+    (_bitmask & _x) == _bitmask;                                               \
+  })
 
 enum dump_allow_flags {
   DUMP_OTHER_ALLOWED = BIT(0),
@@ -73,6 +70,7 @@ enum pkt_dump_file_status {
 struct pkt_dump_file {
   char *file_name;
   unsigned long pkts;
+  pcap_dumper_t *dumper;
 
   enum pkt_dump_file_status status;
   unsigned long start_time;
@@ -105,6 +103,27 @@ struct ip_pair {
 
 /* pkt2flow.c */
 extern struct ip_pair *pairs[];
+
+/*
+ * Open the trace file
+ */
+void open_trace_file(void);
+
+/*
+ * Close the trace file
+ */
+void close_trace_files(void);
+
+/*
+ * Handle Ethernet packet processing
+ */
+int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
+  const struct pcap_pkthdr *hdr, const u_char *pkt);
+
+/*
+* Create the full file path for a packet dump file
+*/
+char *resemble_file_path(struct pkt_dump_file *pdf);
 
 /* utilities.c */
 
@@ -149,8 +168,24 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple);
  */
 void reset_pdf(struct pkt_dump_file *f);
 
-#ifdef __cplusplus
-}
-#endif
+/*
+ * Set the dump allowed flags for controlling which packet types to process
+ */
+void set_dump_allowed(uint32_t flags);
+
+/*
+ * Set the input file to process
+ */
+void set_readfile(const char *filename);
+
+/*
+ * Set the output directory
+ */
+void set_outputdir(const char *dir);
+
+/*
+ * Process the trace file
+ */
+void process_trace(void);
 
 #endif /* PKT2FLOW_H */

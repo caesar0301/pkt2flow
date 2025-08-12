@@ -61,7 +61,7 @@ echo -e "${YELLOW}Using clang-format version: $(clang-format --version | head -n
 
 # Define source directories and file patterns
 SOURCE_DIRS=("src" "tests" "examples")
-FILE_PATTERNS=("*.cpp" "*.h" "*.hpp")
+FILE_PATTERNS=("*.cpp" "*.h" "*.hpp" "*.c")
 
 # Collect all files to format
 FILES_TO_FORMAT=()
