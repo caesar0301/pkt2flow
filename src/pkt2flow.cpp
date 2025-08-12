@@ -212,7 +212,17 @@ static int pcap_handle_layer4(struct af_6tuple *af_6tuple, const u_char *bytes,
     af_6tuple->port1 = ntohs(tcphdr->source);
     af_6tuple->port2 = ntohs(tcphdr->dest);
 #endif
-    break;
+#ifdef darwin
+    if (tcphdr->th_flags == TH_SYN)
+      return 1;
+    else
+      return 0;
+#else
+    if (tcphdr->syn)
+      return 1;
+    else
+      return 0;
+#endif
   }
   default:
     af_6tuple->protocol = proto;
