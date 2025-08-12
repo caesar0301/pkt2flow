@@ -32,65 +32,68 @@
  * SOFTWARE.
  */
 
-#include <stdint.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <stdint.h>
 
-#define __SOURCE_VERSION__              "1.4"
-#define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
-#define __GLOBAL_NAME__                 "pkt2flow"
-#define FLOW_TIMEOUT                    1800    // seconds
-#define HASH_MULTIPLIER                 37
-#define HASH_TBL_SIZE                   48611
+#define __SOURCE_VERSION__ "1.4"
+#define __AUTHOR__ "Xiaming Chen (chenxm35@gmail.com)"
+#define __GLOBAL_NAME__ "pkt2flow"
+#define FLOW_TIMEOUT 1800 // seconds
+#define HASH_MULTIPLIER 37
+#define HASH_TBL_SIZE 48611
 
 #define BIT(bitnr) (1ULL << (bitnr))
-#define isset_bits(x, bitmask) ({ typeof(bitmask) _bitmask = (bitmask); \
-				  (_bitmask & (x)) == _bitmask; })
+#define isset_bits(x, bitmask)                                                 \
+  ({                                                                           \
+    typeof(bitmask) _bitmask = (bitmask);                                      \
+    (_bitmask & (x)) == _bitmask;                                              \
+  })
 
 enum dump_allow_flags {
-	DUMP_OTHER_ALLOWED = BIT(0),
-	DUMP_TCP_NOSYN_ALLOWED = BIT(1),
-	DUMP_UDP_ALLOWED = BIT(2),
+  DUMP_OTHER_ALLOWED = BIT(0),
+  DUMP_TCP_NOSYN_ALLOWED = BIT(1),
+  DUMP_UDP_ALLOWED = BIT(2),
 };
 
 enum pkt_dump_file_status {
-	STS_UNSET,
-	STS_TCP_SYN,
-	STS_TCP_NOSYN,
-	STS_UDP,
+  STS_UNSET,
+  STS_TCP_SYN,
+  STS_TCP_NOSYN,
+  STS_UDP,
 };
 
 struct pkt_dump_file {
-	char *file_name;
-	unsigned long pkts;
+  char *file_name;
+  unsigned long pkts;
 
-	enum pkt_dump_file_status status;
-	unsigned long start_time;
+  enum pkt_dump_file_status status;
+  unsigned long start_time;
 };
 
 /* VLAN header, IEEE 802.1Q */
 struct vlan_header {
-	uint16_t tci;   /* Priority 3bits, CFI 1bit, ID 12bits */
-	uint16_t tpid;
+  uint16_t tci; /* Priority 3bits, CFI 1bit, ID 12bits */
+  uint16_t tpid;
 };
 
 union ip_address {
-	struct in_addr v4;
-	struct in6_addr v6;
+  struct in_addr v4;
+  struct in6_addr v6;
 };
 
 struct af_6tuple {
-	int af_family;
-	int protocol;
-	union ip_address ip1, ip2;
-	uint16_t port1, port2;
-	uint8_t is_vlan;
+  int af_family;
+  int protocol;
+  union ip_address ip1, ip2;
+  uint16_t port1, port2;
+  uint8_t is_vlan;
 };
 
 struct ip_pair {
-	struct af_6tuple af_6tuple;
-	struct pkt_dump_file pdf;
-	struct ip_pair *next;
+  struct af_6tuple af_6tuple;
+  struct pkt_dump_file pdf;
+  struct ip_pair *next;
 };
 
 /* pkt2flow.c */
@@ -138,4 +141,3 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple);
  * and file name bytes all set to be '\0'
  */
 void reset_pdf(struct pkt_dump_file *f);
-
