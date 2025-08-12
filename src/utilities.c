@@ -31,45 +31,47 @@
  * SOFTWARE.
  */
 
-#include "pkt2flow.h"
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include "pkt2flow.h"
 
-char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp) {
-  char *fname;
-  char src_ip_str[INET6_ADDRSTRLEN];
-  char dst_ip_str[INET6_ADDRSTRLEN];
-  int ret;
+char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp)
+{
+	char *fname;
+	char src_ip_str[INET6_ADDRSTRLEN];
+	char dst_ip_str[INET6_ADDRSTRLEN];
+	int ret;
 
-  switch (af_6tuple.af_family) {
-  case AF_INET:
-    inet_ntop(AF_INET, &af_6tuple.ip1.v4, src_ip_str, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &af_6tuple.ip2.v4, dst_ip_str, INET_ADDRSTRLEN);
-    break;
-  case AF_INET6:
-    inet_ntop(AF_INET6, &af_6tuple.ip1.v6, src_ip_str, INET6_ADDRSTRLEN);
-    inet_ntop(AF_INET6, &af_6tuple.ip2.v6, dst_ip_str, INET6_ADDRSTRLEN);
-    break;
-  }
+	switch (af_6tuple.af_family) {
+	case AF_INET:
+		inet_ntop(AF_INET, &af_6tuple.ip1.v4, src_ip_str, INET_ADDRSTRLEN);
+		inet_ntop(AF_INET, &af_6tuple.ip2.v4, dst_ip_str, INET_ADDRSTRLEN);
+		break;
+	case AF_INET6:
+		inet_ntop(AF_INET6, &af_6tuple.ip1.v6, src_ip_str, INET6_ADDRSTRLEN);
+		inet_ntop(AF_INET6, &af_6tuple.ip2.v6, dst_ip_str, INET6_ADDRSTRLEN);
+		break;
+	}
 
-  switch (af_6tuple.is_vlan) {
-  case 0:
-    ret = asprintf(&fname, "%s_%" PRIu16 "_%s_%" PRIu16 "_%lu.pcap", src_ip_str,
-                   af_6tuple.port1, dst_ip_str, af_6tuple.port2, timestamp);
-    break;
-  case 1:
-    ret = asprintf(&fname, "%s_%" PRIu16 "_%s_%" PRIu16 "_%lu_vlan.pcap",
-                   src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
-                   timestamp);
-    break;
-  }
+	switch (af_6tuple.is_vlan) {
+	case 0:
+		ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
+		       src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
+		       timestamp);
+		break;
+	case 1:
+		ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu_vlan.pcap",
+		       src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
+		       timestamp);
+		break;
+	}
 
-  if (ret < 0)
-    fname = NULL;
+	if (ret < 0)
+		fname = NULL;
 
-  return fname;
+	return fname;
 }

@@ -45,14 +45,11 @@ if(NOT PCAP_FOUND)
     set(PCAP_INCLUDE_DIRS "")
 endif()
 
-# Find glog
-find_package(glog REQUIRED)
-
 # Source files
 set(PKT2FLOW_SOURCES
-    src/pkt2flow.cpp
-    src/flow_db.cpp
-    src/utilities.cpp
+    src/pkt2flow.c
+    src/flow_db.c
+    src/utilities.c
 )
 
 # Create the main executable
@@ -61,7 +58,6 @@ add_executable(pkt2flow ${PKT2FLOW_SOURCES})
 # Link libraries
 target_link_libraries(pkt2flow 
     ${PCAP_LIBRARIES}
-    glog::glog
 )
 
 # Include directories
@@ -87,6 +83,7 @@ option(BUILD_TESTS "Build unit tests" ON)
 if(BUILD_TESTS)
     # Find GoogleTest
     find_package(GTest REQUIRED)
+    find_package(Glog REQUIRED)
     
     # Test source files
     set(TEST_SOURCES
@@ -120,8 +117,8 @@ if(BUILD_TESTS)
     
     # Create a library from the source files for testing
     add_library(pkt2flow_lib STATIC
-        src/flow_db.cpp
-        src/utilities.cpp
+        src/flow_db.c
+        src/utilities.c
     )
     
     target_include_directories(pkt2flow_lib PUBLIC 
