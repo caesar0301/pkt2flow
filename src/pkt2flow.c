@@ -56,7 +56,6 @@ static char *readfile = NULL;
 // char *interface = NULL;
 static char *outputdir = "pkt2flow.out";
 pcap_t *inputp = NULL;
-struct ip_pair *pairs[HASH_TBL_SIZE];
 
 void open_trace_file(void) {
   char errbuf[PCAP_ERRBUF_SIZE];

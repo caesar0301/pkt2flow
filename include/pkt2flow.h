@@ -31,6 +31,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef PKT2FLOW_H
+#define PKT2FLOW_H
 
 #include <netinet/in.h>
 #include <netinet/ip6.h>
@@ -47,8 +49,9 @@
 #define BIT(bitnr) (1ULL << (bitnr))
 #define isset_bits(x, bitmask)                                                 \
   ({                                                                           \
-    typeof(bitmask) _bitmask = (bitmask);                                      \
-    (_bitmask & (x)) == _bitmask;                                              \
+    uint32_t _bitmask = (uint32_t)(bitmask);                                   \
+    uint32_t _x = (uint32_t)(x);                                               \
+    (_bitmask & _x) == _bitmask;                                               \
   })
 
 enum dump_allow_flags {
@@ -184,3 +187,5 @@ void set_outputdir(const char *dir);
  * Process the trace file
  */
 void process_trace(void);
+
+#endif /* PKT2FLOW_H */
