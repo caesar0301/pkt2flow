@@ -72,7 +72,7 @@ char *resemble_file_path(struct pkt_dump_file *pdf) {
   int check;
   struct stat statBuff;
   int ret;
-  const char *type_folder;
+  const char *type_folder = NULL;
   char *outputpath;
   char *dir_path = NULL;
 

@@ -43,7 +43,7 @@ char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp) {
   char *fname;
   char src_ip_str[INET6_ADDRSTRLEN];
   char dst_ip_str[INET6_ADDRSTRLEN];
-  int ret;
+  int ret = 0;
 
   switch (af_6tuple.af_family) {
   case AF_INET:
