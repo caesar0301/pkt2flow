@@ -36,7 +36,7 @@
 #include <netinet/in.h>
 #include <netinet/ip6.h>
 
-#define __SOURCE_VERSION__              "1.2"
+#define __SOURCE_VERSION__              "1.4"
 #define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
 #define __GLOBAL_NAME__                 "pkt2flow"
 #define FLOW_TIMEOUT                    1800    // seconds
