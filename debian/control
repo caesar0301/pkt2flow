@@ -1,0 +1,16 @@
+Source: pkt2flow
+Section: utils
+Priority: optional
+Maintainer: Xumin Chen <chenxm35@gmail.com>
+Build-Depends: debhelper-compat (= 13), cmake, pkg-config, libpcap-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/caesar0301/pkt2flow
+Rules-Requires-Root: no
+
+Package: pkt2flow
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Split packets in pcap into per-flow pcaps
+ A simple utility that classifies packets into flows using the 4-tuple
+ (source IP, destination IP, source port, destination port) and writes each
+ flow to a separate pcap file.
