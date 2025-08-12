@@ -1,9 +1,8 @@
-
 /* pkt2flow
- * Xiaming Chen (chen_xm@sjtu.edu.cn)
  *
- * Copyright (c) 2012
- * Copyright (c) 2014 Sven Eckelmann <sven@narfation.org>
+ * Copyright (c) 2012  Xiaming Chen <chen_xm@sjtu.edu.cn>
+ * Copyright (C) 2014  Sven Eckelmann <sven@narfation.org>
+ * Copyright (C) 2025  Xiaming Chen <chenxm35@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -31,6 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
 #ifndef PKT2FLOW_H
 #define PKT2FLOW_H
 
