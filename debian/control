@@ -1,7 +1,7 @@
 Source: pkt2flow
 Section: utils
 Priority: optional
-Maintainer: Xumin Chen <chenxm35@gmail.com>
+Maintainer: Xiaming Chen <chenxm35@gmail.com>
 Build-Depends: debhelper-compat (= 13), cmake, pkg-config, libpcap-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/caesar0301/pkt2flow

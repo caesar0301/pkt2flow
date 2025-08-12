@@ -1,0 +1,91 @@
+name: PPA Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      series:
+        description: 'Ubuntu series to build for (comma-separated)'
+        required: false
+        default: 'noble,jammy'
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        series: ${{ fromJson(format('["{0}"]', join(inputs.series != '' && inputs.series || 'noble,jammy', '","'))) }}
+    env:
+      DEBFULLNAME: Xiaming Chen
+      DEBEMAIL: chenxm35@gmail.com
+      PPA_TARGET: ppa:caesar0301/ppa
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            devscripts debhelper dput \
+            cmake pkg-config libpcap-dev
+
+      - name: Setup GPG for non-interactive signing
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          test -n "$GPG_PRIVATE_KEY" || { echo 'GPG_PRIVATE_KEY secret not set'; exit 1; }
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          printf 'pinentry-mode loopback\n' >> ~/.gnupg/gpg.conf
+          printf 'allow-loopback-pinentry\n' >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent || true
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "Imported keys:" && gpg --list-keys --keyid-format LONG
+          KEYID=$(gpg --list-keys --with-colons | awk -F: '/^pub/{print $5; exit}')
+          echo "DEBSIGN_KEYID=$KEYID" >> $GITHUB_ENV
+
+      - name: Compute version from tag
+        id: ver
+        run: |
+          TAG_REF="${GITHUB_REF_NAME:-${GITHUB_REF##*/}}"
+          UPSTREAM="${TAG_REF#v}"
+          echo "upstream=$UPSTREAM" >> $GITHUB_OUTPUT
+
+      - name: Update changelog for series
+        run: |
+          VERSION="${{ steps.ver.outputs.upstream }}-0ppa1~${{ matrix.series }}1"
+          dch --force-distribution -v "$VERSION" -D "${{ matrix.series }}" "Automated PPA release for ${{ matrix.series }} from tag v${{ steps.ver.outputs.upstream }}"
+          tail -n +1 debian/changelog
+
+      - name: Build signed source package
+        env:
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          DEBSIGN_KEYID: ${{ env.DEBSIGN_KEYID }}
+        run: |
+          test -n "$DEBSIGN_KEYID" || { echo 'Missing DEBSIGN_KEYID'; exit 1; }
+          # debuild uses debsign -> gpg; force loopback pinentry to passphrase
+          export GPG_TTY=$(tty || true)
+          debuild -S -sa -k"$DEBSIGN_KEYID" -p"gpg --batch --yes --pinentry-mode loopback --passphrase $GPG_PASSPHRASE"
+
+      - name: Upload to PPA
+        run: |
+          CHANGES_FILE=$(ls -1 ../pkt2flow_*~${{ matrix.series }}1_source.changes | tail -n1)
+          test -n "$CHANGES_FILE" || { echo 'No .changes found'; ls -l ..; exit 1; }
+          dput $PPA_TARGET "$CHANGES_FILE"
+
+      - name: Upload source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppa-source-${{ matrix.series }}
+          path: |
+            ../pkt2flow_*~${{ matrix.series }}1.dsc
+            ../pkt2flow_*~${{ matrix.series }}1_source.changes
+            ../pkt2flow_*~${{ matrix.series }}1.debian.tar.*
+            ../pkt2flow_*~${{ matrix.series }}1.orig.tar.*
+          if-no-files-found: warn

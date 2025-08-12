@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(pkt2flow
-    VERSION 1.2.0
+    VERSION 1.4.1
     DESCRIPTION "A simple utility to classify packets into flows"
     LANGUAGES C CXX)
 
@@ -163,10 +163,12 @@ if(BUILD_TESTS)
     target_link_libraries(pkt2flow_tests pkt2flow_lib pkt2flow_test_lib)
 endif()
 
-# Build example in examples/
-add_executable(example_pkt2flow examples/example_pkt2flow.c)
-target_link_libraries(example_pkt2flow pkt2flow_lib)
-target_include_directories(example_pkt2flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Build example in examples/ only when tests and libs are built
+if(BUILD_TESTS)
+    add_executable(example_pkt2flow examples/example_pkt2flow.c)
+    target_link_libraries(example_pkt2flow pkt2flow_lib)
+    target_include_directories(example_pkt2flow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+endif()
 
 # CPack configuration for packaging
 include(CPack)
