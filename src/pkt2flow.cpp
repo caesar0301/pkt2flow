@@ -32,7 +32,7 @@
 
 #include "pkt2flow.h"
 #include <getopt.h>
-#include <glog/logging.h>
+#include <iostream>
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -40,16 +40,16 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <pcap/pcap.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+// Forward declarations for logging functions
+void log_error(const std::string &message);
+void log_fatal(const std::string &message);
 
 static uint32_t dump_allowed;
 static char *readfile = NULL;
@@ -79,12 +79,6 @@ static void parseargs(int argc, char *argv[]) {
   const char *optstr = "uvxo:h";
   while ((opt = getopt(argc, argv, optstr)) != -1) {
     switch (opt) {
-    case 'h':
-      usage(argv[0]);
-      exit(-1);
-    case 'o':
-      outputdir = optarg;
-      break;
     case 'u':
       dump_allowed |= DUMP_UDP_ALLOWED;
       break;
@@ -94,9 +88,17 @@ static void parseargs(int argc, char *argv[]) {
     case 'x':
       dump_allowed |= DUMP_OTHER_ALLOWED;
       break;
+    case 'o':
+      outputdir = optarg;
+      break;
+    case 'h':
+      usage(argv[0]);
+      exit(0);
+      break;
     default:
       usage(argv[0]);
-      exit(-1);
+      exit(1);
+      break;
     }
   }
 
@@ -111,14 +113,12 @@ static void parseargs(int argc, char *argv[]) {
 
 static void open_trace_file(void) {
   char errbuf[PCAP_ERRBUF_SIZE];
-
-  LOG(INFO) << "Opening trace file: " << readfile;
   inputp = pcap_open_offline(readfile, errbuf);
   if (!inputp) {
-    LOG(FATAL) << "Error opening tracefile " << readfile << ": " << errbuf;
+    log_fatal("Error opening tracefile " + std::string(readfile) + ": " +
+              std::string(errbuf));
     exit(1);
   }
-  LOG(INFO) << "Successfully opened trace file";
 }
 
 static char *resemble_file_path(struct pkt_dump_file *pdf) {
@@ -161,7 +161,7 @@ static char *resemble_file_path(struct pkt_dump_file *pdf) {
       if (!(ret != -1 && S_ISDIR(statBuff.st_mode))) {
         int check = mkdir(folder, S_IRWXU);
         if (check != 0) {
-          LOG(ERROR) << "Failed to create directory: " << folder;
+          log_error("Failed to create directory: " + std::string(folder));
           exit(-1);
         }
       }
@@ -326,11 +326,17 @@ static int pcap_handle_ip(struct af_6tuple *af_6tuple, const u_char *bytes,
 static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
                                 const struct pcap_pkthdr *h,
                                 const u_char *bytes) {
-  if (h->caplen < sizeof(struct ether_header))
-    return -1;
-  struct ether_header *ethhdr =
-      reinterpret_cast<struct ether_header *>(const_cast<u_char *>(bytes));
   size_t len = h->caplen;
+  struct ether_header *ethhdr;
+
+  /* Ethernet header */
+  if (len < sizeof(*ethhdr))
+    return -1;
+
+  ethhdr = reinterpret_cast<struct ether_header *>(const_cast<u_char *>(bytes));
+  len -= sizeof(*ethhdr);
+  bytes += sizeof(*ethhdr);
+
   struct vlan_header *vlanhdr = nullptr;
   uint16_t etype = ntohs(ethhdr->ether_type);
 
@@ -406,77 +412,74 @@ static void process_trace(void) {
       }
     }
 
-    // Generate the file name for the flow
-    if (pair->pdf.file_name == NULL) {
-      pair->pdf.file_name = new_file_name(af_6tuple, hdr.ts.tv_sec);
+    // Fill the ip_pair with information of the current flow
+    if (pair->pdf.pkts == 0) {
+      // A new flow item created with empty dump file object
+      fname = new_file_name(af_6tuple, hdr.ts.tv_sec);
+      pair->pdf.file_name = fname;
       pair->pdf.start_time = hdr.ts.tv_sec;
+    } else {
+      if (hdr.ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT) {
+        // Reset the pair to start a new flow with the same 6-tuple, but with
+        // the different name and timestamp
+        reset_pdf(&(pair->pdf));
+        fname = new_file_name(af_6tuple, hdr.ts.tv_sec);
+        pair->pdf.file_name = fname;
+        pair->pdf.start_time = hdr.ts.tv_sec;
+
+        switch (af_6tuple.protocol) {
+        case IPPROTO_TCP:
+          if (syn_detected)
+            pair->pdf.status = STS_TCP_SYN;
+          else
+            pair->pdf.status = STS_TCP_NOSYN;
+          break;
+        case IPPROTO_UDP:
+          pair->pdf.status = STS_UDP;
+          break;
+        default:
+          pair->pdf.status = STS_UNSET;
+          break;
+        }
+      }
     }
 
-    // Open the file for writing
-    fname = resemble_file_path(&pair->pdf);
-    if (fname == NULL) {
-      LOG(ERROR) << "Failed to generate file path for flow";
-      continue;
-    }
+    // Dump the packet to file
+    fname = resemble_file_path(&(pair->pdf));
 
-    FILE *f = fopen(fname, "ab");
-    if (f == NULL) {
-      LOG(ERROR) << "Failed to open file for writing: " << fname;
+    // Use pcap_dump_open for each packet - this is safe and will append
+    // correctly
+    dumper = pcap_dump_open(inputp, fname);
+    if (dumper == NULL) {
       free(fname);
       continue;
     }
 
-    // Write the packet to the file
-    if (pair->pdf.pkts == 0) {
-      // First packet, write pcap file header
-      dumper = pcap_dump_open(inputp, fname);
-      if (dumper == NULL) {
-        LOG(ERROR) << "Failed to create pcap dumper for: " << fname;
-        fclose(f);
-        free(fname);
-        continue;
-      }
-    } else {
-      // Write the packet only
-      dumper = reinterpret_cast<pcap_dumper_t *>(f);
-    }
-    // Dump the packet now
+    // Dump the packet
     pcap_dump(reinterpret_cast<u_char *>(dumper), &hdr, pkt);
     pcap_dump_close(dumper);
-
-    pair->pdf.pkts++;
     free(fname);
   }
 }
 
 static void close_trace_files(void) { pcap_close(inputp); }
 
+void log_error(const std::string &message) {
+  std::cerr << "E: " << message << std::endl;
+}
+
+void log_fatal(const std::string &message) {
+  std::cerr << "F: " << message << std::endl;
+}
+
 int main(int argc, char *argv[]) {
-  // Initialize Google Logging
-  google::InitGoogleLogging(argv[0]);
-
-  // Set logging to stderr and files
-  FLAGS_alsologtostderr = true;
-  FLAGS_log_dir = "./logs";
-
-  LOG(INFO) << "Starting " << __GLOBAL_NAME__ << " version "
-            << __SOURCE_VERSION__;
-
   parseargs(argc, argv);
   open_trace_file();
   init_hash_table();
 
-  LOG(INFO) << "Processing trace file: " << readfile;
-  LOG(INFO) << "Output directory: " << outputdir;
-
   process_trace();
   close_trace_files();
   free_hash_table();
-
-  LOG(INFO) << "Processing completed successfully";
-
-  // Cleanup Google Logging
-  google::ShutdownGoogleLogging();
 
   exit(0);
 }
