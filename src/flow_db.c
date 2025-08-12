@@ -1,8 +1,8 @@
 /* pkt2flow
- * Xiaming Chen (chen_xm@sjtu.edu.cn)
  *
- * Copyright (c) 2012
- * Copyright (c) 2014 Sven Eckelmann <sven@narfation.org>
+ * Copyright (c) 2012  Xiaming Chen <chen_xm@sjtu.edu.cn>
+ * Copyright (C) 2014  Sven Eckelmann <sven@narfation.org>
+ * Copyright (C) 2025  Xiaming Chen <chenxm35@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -78,6 +78,10 @@ void reset_pdf(struct pkt_dump_file *f) {
   f->status = STS_UNSET;
   free(f->file_name);
   f->file_name = NULL;
+  if (f->dumper) {
+    pcap_dump_close(f->dumper);
+    f->dumper = NULL;
+  }
 }
 
 static unsigned int hash_5tuple(struct af_6tuple af_6tuple) {
@@ -184,6 +188,7 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple) {
 
   newp->af_6tuple = af_6tuple;
   newp->pdf.file_name = NULL;
+  newp->pdf.dumper = NULL;
   newp->next = pairs[hash];
   pairs[hash] = newp;
   reset_pdf((struct pkt_dump_file *)&(newp->pdf));

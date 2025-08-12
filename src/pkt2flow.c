@@ -1,8 +1,8 @@
 /* pkt2flow
- * Xiaming Chen (chen_xm@sjtu.edu.cn)
  *
- * Copyright (c) 2012
+ * Copyright (c) 2012  Xiaming Chen <chen_xm@sjtu.edu.cn>
  * Copyright (C) 2014  Sven Eckelmann <sven@narfation.org>
+ * Copyright (C) 2025  Xiaming Chen <chenxm35@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation files
@@ -32,7 +32,7 @@
  */
 
 #include "pkt2flow.h"
-#include <getopt.h>
+
 #include <net/ethernet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -55,62 +55,10 @@ static uint32_t dump_allowed;
 static char *readfile = NULL;
 // char *interface = NULL;
 static char *outputdir = "pkt2flow.out";
-static pcap_t *inputp = NULL;
+pcap_t *inputp = NULL;
 struct ip_pair *pairs[HASH_TBL_SIZE];
 
-static void usage(char *progname) {
-  fprintf(stderr, "Name: %s\n", __GLOBAL_NAME__);
-  fprintf(stderr, "Version: %s\n", __SOURCE_VERSION__);
-  fprintf(stderr, "Author: %s\n", __AUTHOR__);
-  fprintf(stderr,
-          "Program to seperate the packets into flows (UDP or TCP).\n\n");
-  fprintf(stderr, "Usage: %s [-huvx] [-o outdir] pcapfile\n\n", progname);
-  fprintf(stderr, "Options:\n");
-  fprintf(stderr, "	-h	print this help and exit\n");
-  fprintf(stderr, "	-u	also dump (U)DP flows\n");
-  fprintf(
-      stderr,
-      "	-v	also dump the in(v)alid TCP flows without the SYN option\n");
-  fprintf(stderr, "	-x	also dump non-UDP/non-TCP IP flows\n");
-  fprintf(stderr, "	-o	(o)utput directory\n");
-}
-
-static void parseargs(int argc, char *argv[]) {
-  int opt;
-  const char *optstr = "uvxo:h";
-  while ((opt = getopt(argc, argv, optstr)) != -1) {
-    switch (opt) {
-    case 'h':
-      usage(argv[0]);
-      exit(-1);
-    case 'o':
-      outputdir = optarg;
-      break;
-    case 'u':
-      dump_allowed |= DUMP_UDP_ALLOWED;
-      break;
-    case 'v':
-      dump_allowed |= DUMP_TCP_NOSYN_ALLOWED;
-      break;
-    case 'x':
-      dump_allowed |= DUMP_OTHER_ALLOWED;
-      break;
-    default:
-      usage(argv[0]);
-      exit(-1);
-    }
-  }
-
-  if (optind < argc)
-    readfile = argv[optind];
-  if (readfile == NULL) {
-    fprintf(stderr, "pcap file not given\n");
-    usage(argv[0]);
-    exit(1);
-  }
-}
-
-static void open_trace_file(void) {
+void open_trace_file(void) {
   char errbuf[PCAP_ERRBUF_SIZE];
 
   inputp = pcap_open_offline(readfile, errbuf);
@@ -120,7 +68,7 @@ static void open_trace_file(void) {
   }
 }
 
-static char *resemble_file_path(struct pkt_dump_file *pdf) {
+char *resemble_file_path(struct pkt_dump_file *pdf) {
   char *cwd = getcwd(NULL, 0); // backup the current working directory
   int check;
   struct stat statBuff;
@@ -357,9 +305,8 @@ static int pcap_handle_ip(struct af_6tuple *af_6tuple, const u_char *bytes,
   return -1;
 }
 
-static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
-                                const struct pcap_pkthdr *h,
-                                const u_char *bytes) {
+int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
+                         const struct pcap_pkthdr *h, const u_char *bytes) {
   size_t len = h->caplen;
   struct ether_header *ethhdr;
 
@@ -393,9 +340,9 @@ static int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
 
 static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
                            const u_char *pkt) {
+  (void)user; // Suppress unused parameter warning
   int syn_detected;
   struct ip_pair *pair = NULL;
-  pcap_dumper_t *dumper = NULL;
   char *fname = NULL;
   struct af_6tuple af_6tuple;
 
@@ -476,60 +423,44 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
     }
   }
 
-  // Dump the packet to file and close the file
+  // Dump the packet to file
   fname = resemble_file_path(&(pair->pdf));
   if (!fname) {
     fprintf(stderr, "Failed to create file path\n");
     return;
   }
-  FILE *f = fopen(fname, "ab");
-  if (!f) {
-    fprintf(stderr, "Failed to open output file '%s'\n", fname);
-    free(fname);
-    return;
-  }
 
   if (pair->pdf.pkts == 0) {
-    // Call the pcap_dump_fopen to write the pcap file header first
-    // to the new file
-    dumper = pcap_dump_fopen(inputp, f);
-    if (!dumper) {
+    // First packet in this flow - create a new file with pcap header
+    FILE *f = fopen(fname, "wb");
+    if (!f) {
+      fprintf(stderr, "Failed to open output file '%s'\n", fname);
+      free(fname);
+      return;
+    }
+    pair->pdf.dumper = pcap_dump_fopen(inputp, f);
+    if (!pair->pdf.dumper) {
       fprintf(stderr, "Failed to create pcap dumper\n");
       fclose(f);
       free(fname);
       return;
     }
-    // Dump the packet now
-    pcap_dump((u_char *)dumper, hdr, (unsigned char *)pkt);
-    pcap_dump_close(dumper);
-  } else {
-    // Write the packet only - we need to create a new dumper for each packet
-    dumper = pcap_dump_fopen(inputp, f);
-    if (!dumper) {
-      fprintf(stderr, "Failed to create pcap dumper\n");
-      fclose(f);
-      free(fname);
-      return;
-    }
-    // Dump the packet now
-    pcap_dump((u_char *)dumper, hdr, (unsigned char *)pkt);
-    pcap_dump_close(dumper);
   }
+
+  // Dump the packet using the existing dumper
+  pcap_dump((u_char *)pair->pdf.dumper, hdr, (unsigned char *)pkt);
+  pcap_dump_flush(pair->pdf.dumper);
 
   free(fname);
   pair->pdf.pkts++;
 }
 
-static void process_trace(void) { pcap_loop(inputp, -1, packet_handler, NULL); }
+void set_dump_allowed(uint32_t flags) { dump_allowed = flags; }
 
-static void close_trace_files(void) { pcap_close(inputp); }
+void set_readfile(const char *filename) { readfile = (char *)filename; }
 
-int main(int argc, char *argv[]) {
-  parseargs(argc, argv);
-  open_trace_file();
-  init_hash_table();
-  process_trace();
-  close_trace_files();
-  free_hash_table();
-  exit(0);
-}
+void set_outputdir(const char *dir) { outputdir = (char *)dir; }
+
+void process_trace(void) { pcap_loop(inputp, -1, packet_handler, NULL); }
+
+void close_trace_files(void) { pcap_close(inputp); }

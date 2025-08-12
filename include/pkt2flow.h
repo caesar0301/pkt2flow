@@ -34,6 +34,7 @@
 
 #include <netinet/in.h>
 #include <netinet/ip6.h>
+#include <pcap/pcap.h>
 #include <stdint.h>
 
 #define __SOURCE_VERSION__ "1.4"
@@ -66,6 +67,7 @@ enum pkt_dump_file_status {
 struct pkt_dump_file {
   char *file_name;
   unsigned long pkts;
+  pcap_dumper_t *dumper;
 
   enum pkt_dump_file_status status;
   unsigned long start_time;
@@ -98,6 +100,27 @@ struct ip_pair {
 
 /* pkt2flow.c */
 extern struct ip_pair *pairs[];
+
+/*
+ * Open the trace file
+ */
+void open_trace_file(void);
+
+/*
+ * Close the trace file
+ */
+void close_trace_files(void);
+
+/*
+ * Handle Ethernet packet processing
+ */
+int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
+  const struct pcap_pkthdr *hdr, const u_char *pkt);
+
+/*
+* Create the full file path for a packet dump file
+*/
+char *resemble_file_path(struct pkt_dump_file *pdf);
 
 /* utilities.c */
 
@@ -141,3 +164,23 @@ struct ip_pair *register_ip_pair(struct af_6tuple af_6tuple);
  * and file name bytes all set to be '\0'
  */
 void reset_pdf(struct pkt_dump_file *f);
+
+/*
+ * Set the dump allowed flags for controlling which packet types to process
+ */
+void set_dump_allowed(uint32_t flags);
+
+/*
+ * Set the input file to process
+ */
+void set_readfile(const char *filename);
+
+/*
+ * Set the output directory
+ */
+void set_outputdir(const char *dir);
+
+/*
+ * Process the trace file
+ */
+void process_trace(void);

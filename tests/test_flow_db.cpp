@@ -113,6 +113,7 @@ TEST_F(FlowDbTest, ResetPdf) {
   pdf.start_time = 12345;
   pdf.status = STS_TCP_SYN;
   pdf.file_name = strdup("test_file.pcap");
+  pdf.dumper = nullptr; // Initialize dumper to nullptr
 
   reset_pdf(&pdf);
 
@@ -120,6 +121,7 @@ TEST_F(FlowDbTest, ResetPdf) {
   EXPECT_EQ(pdf.start_time, 0);
   EXPECT_EQ(pdf.status, STS_UNSET);
   EXPECT_EQ(pdf.file_name, nullptr);
+  EXPECT_EQ(pdf.dumper, nullptr);
 }
 
 TEST_F(FlowDbTest, UdpFlow) {

@@ -81,19 +81,6 @@ Options:
 ```
 This will split all TCP and UDP flows from `input.pcap` into separate files in the `output_flows/` directory.
 
-## Logging
-
-Google glog is used for structured logging. Logs are written to:
-- Console (stderr) for important messages
-- Log files in `./logs/` for detailed debugging
-
-Control verbosity with environment variables:
-```bash
-export GLOG_v=2  # Increase verbosity
-export GLOG_log_dir=/custom/log/path
-./pkt2flow input.pcap
-```
-
 ## Development
 
 ### Running Tests
