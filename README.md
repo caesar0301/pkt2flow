@@ -58,7 +58,7 @@ brew install libpcap glog googletest cmake
 
 Example:
 ```bash
-cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=OFF
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
 ```
 
 ## Usage
@@ -80,21 +80,6 @@ Options:
 ./pkt2flow -u -o output_flows/ input.pcap
 ```
 This will split all TCP and UDP flows from `input.pcap` into separate files in the `output_flows/` directory.
-
-## Development
-
-### Running Tests
-```bash
-cd build && ctest
-# Or run a specific test:
-./pkt2flow_tests --gtest_filter="FlowDbTest.*"
-```
-
-### Code Quality
-```bash
-cppcheck --enable=all *.c *.h
-clang-format --dry-run *.c *.h
-```
 
 ## Troubleshooting
 
