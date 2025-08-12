@@ -121,6 +121,12 @@ int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
   const struct pcap_pkthdr *hdr, const u_char *pkt);
 
 /*
+ * Handle raw IP packet processing
+ */
+int pcap_handle_raw_ip(struct af_6tuple *af_6tuple,
+  const struct pcap_pkthdr *hdr, const u_char *pkt);
+
+/*
 * Create the full file path for a packet dump file
 */
 char *resemble_file_path(struct pkt_dump_file *pdf);

@@ -56,6 +56,7 @@ static char *readfile = NULL;
 // char *interface = NULL;
 static char *outputdir = "pkt2flow.out";
 pcap_t *inputp = NULL;
+static int link_type = -1;
 
 void open_trace_file(void) {
   char errbuf[PCAP_ERRBUF_SIZE];
@@ -63,6 +64,12 @@ void open_trace_file(void) {
   inputp = pcap_open_offline(readfile, errbuf);
   if (!inputp) {
     fprintf(stderr, "error opening tracefile %s: %s\n", readfile, errbuf);
+    exit(1);
+  }
+
+  link_type = pcap_datalink(inputp);
+  if (link_type == -1) {
+    fprintf(stderr, "error getting link type: %s\n", pcap_geterr(inputp));
     exit(1);
   }
 }
@@ -337,6 +344,16 @@ int pcap_handle_ethernet(struct af_6tuple *af_6tuple,
   return pcap_handle_ip(af_6tuple, bytes, len);
 }
 
+int pcap_handle_raw_ip(struct af_6tuple *af_6tuple, const struct pcap_pkthdr *h,
+                       const u_char *bytes) {
+  size_t len = h->caplen;
+
+  /* For raw IP packets, the packet starts directly with IP header */
+  af_6tuple->is_vlan = 0;
+
+  return pcap_handle_ip(af_6tuple, bytes, len);
+}
+
 static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
                            const u_char *pkt) {
   (void)user; // Suppress unused parameter warning
@@ -345,7 +362,27 @@ static void packet_handler(u_char *user, const struct pcap_pkthdr *hdr,
   char *fname = NULL;
   struct af_6tuple af_6tuple;
 
-  syn_detected = pcap_handle_ethernet(&af_6tuple, hdr, pkt);
+  /* Handle different link types */
+  switch (link_type) {
+  case DLT_EN10MB:      /* Ethernet */
+  case DLT_IEEE802:     /* Token Ring */
+  case DLT_ARCNET:      /* ARCNET */
+  case DLT_SLIP:        /* SLIP */
+  case DLT_PPP:         /* PPP */
+  case DLT_FDDI:        /* FDDI */
+  case DLT_ATM_RFC1483: /* ATM RFC1483 */
+  case DLT_RAW:         /* Raw IP */
+    if (link_type == DLT_RAW) {
+      syn_detected = pcap_handle_raw_ip(&af_6tuple, hdr, pkt);
+    } else {
+      syn_detected = pcap_handle_ethernet(&af_6tuple, hdr, pkt);
+    }
+    break;
+  default:
+    fprintf(stderr, "Unsupported link type: %d\n", link_type);
+    return;
+  }
+
   if (syn_detected < 0)
     return;
 
